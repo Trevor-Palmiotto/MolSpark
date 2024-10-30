@@ -6,7 +6,7 @@
 	<style>
 	@import url("https://use.typekit.net/jmk3xov.css");
 	body {
-	background-color: #333;
+	background-color: white;
 	height: 98vh;
 	overflow: hidden;
 	font-family: "Courier New";
@@ -56477,6 +56477,169 @@ class CameraController {
 };
 
 // ------------------- DEPENDENCIES DONE -------------------
+const atomic_models = {
+    "H"  : { 'z': 1,   "radius": 0.120, "color": 0xEEEEEE },
+    "He" : { 'z': 2,   "radius": 0.140, "color": 0xD9FFFF },
+    "Li" : { 'z': 3,   "radius": 0.182, "color": 0xCC80FF },
+    "Be" : { 'z': 4,   "radius": 0.153, "color": 0xC2FF00 },
+    "B"  : { 'z': 5,   "radius": 0.192, "color": 0xFFB5B5 },
+    "C"  : { 'z': 6,   "radius": 0.170, "color": 0x909090 },
+    "N"  : { 'z': 7,   "radius": 0.155, "color": 0x3050F8 },
+    "O"  : { 'z': 8,   "radius": 0.152, "color": 0xFF0D0D },
+    "F"  : { 'z': 9,   "radius": 0.135, "color": 0x90E050 },
+    "Ne" : { 'z': 10,  "radius": 0.154, "color": 0xB3E3F5 },
+    "Na" : { 'z': 11,  "radius": 0.227, "color": 0xAB5CF2 },
+    "Mg" : { 'z': 12,  "radius": 0.173, "color": 0x8AFF00 },
+    "Al" : { 'z': 13,  "radius": 0.184, "color": 0xBFA6A6 },
+    "Si" : { 'z': 14,  "radius": 0.210, "color": 0xF0C8A0 },
+    "P"  : { 'z': 15,  "radius": 0.180, "color": 0xFF8000 },
+    "S"  : { 'z': 16,  "radius": 0.180, "color": 0xFFFF30 },
+    "Cl" : { 'z': 17,  "radius": 0.175, "color": 0x1FF01F },
+    "Ar" : { 'z': 18,  "radius": 0.188, "color": 0x80D1E3 },
+    "K"  : { 'z': 19,  "radius": 0.275, "color": 0x8F40D4 },
+    "Ca" : { 'z': 20,  "radius": 0.231, "color": 0x3DFF00 },
+    "Sc" : { 'z': 21,  "radius": 0.211, "color": 0xE6E6E6 },
+    "Ti" : { 'z': 22,  "radius": 0.187, "color": 0xBFC2C7 },
+    "V"  : { 'z': 23,  "radius": 0.179, "color": 0xA6A6AB },
+    "Cr" : { 'z': 24,  "radius": 0.189, "color": 0x8A99C7 },
+    "Mn" : { 'z': 25,  "radius": 0.197, "color": 0x9C7AC7 },
+    "Fe" : { 'z': 26,  "radius": 0.194, "color": 0xE06633 },
+    "Co" : { 'z': 27,  "radius": 0.192, "color": 0xF090A0 },
+    "Ni" : { 'z': 28,  "radius": 0.163, "color": 0x50D050 },
+    "Cu" : { 'z': 29,  "radius": 0.140, "color": 0xC88033 },
+    "Zn" : { 'z': 30,  "radius": 0.139, "color": 0x7D80B0 },
+    "Ga" : { 'z': 31,  "radius": 0.187, "color": 0xC28F8F },
+    "Ge" : { 'z': 32,  "radius": 0.211, "color": 0x668F8F },
+    "As" : { 'z': 33,  "radius": 0.185, "color": 0xBD80E3 },
+    "Se" : { 'z': 34,  "radius": 0.190, "color": 0xFFA100 },
+    "Br" : { 'z': 35,  "radius": 0.183, "color": 0xA62929 },
+    "Kr" : { 'z': 36,  "radius": 0.202, "color": 0x5CB8D1 },
+    "Rb" : { 'z': 37,  "radius": 0.303, "color": 0x702EB0 },
+    "Sr" : { 'z': 38,  "radius": 0.249, "color": 0x00FF00 },
+    "Y"  : { 'z': 39,  "radius": 0.219, "color": 0x94FFFF },
+    "Zr" : { 'z': 40,  "radius": 0.186, "color": 0x94E0E0 },
+    "Nb" : { 'z': 41,  "radius": 0.207, "color": 0x73C2C9 },
+    "Mo" : { 'z': 42,  "radius": 0.209, "color": 0x54B5B5 },
+    "Tc" : { 'z': 43,  "radius": 0.209, "color": 0x3B9E9E },
+    "Ru" : { 'z': 44,  "radius": 0.207, "color": 0x248F8F },
+    "Rh" : { 'z': 45,  "radius": 0.195, "color": 0x0A7D8C },
+    "Pd" : { 'z': 46,  "radius": 0.202, "color": 0x006985 },
+    "Ag" : { 'z': 47,  "radius": 0.172, "color": 0xC0C0C0 },
+    "Cd" : { 'z': 48,  "radius": 0.158, "color": 0xFFD98F },
+    "In" : { 'z': 49,  "radius": 0.193, "color": 0xA67573 },
+    "Sn" : { 'z': 50,  "radius": 0.217, "color": 0x668080 },
+    "Sb" : { 'z': 51,  "radius": 0.206, "color": 0x9E63B5 },
+    "Te" : { 'z': 52,  "radius": 0.206, "color": 0xD47A00 },
+    "I"  : { 'z': 53,  "radius": 0.198, "color": 0x940094 },
+    "Xe" : { 'z': 54,  "radius": 0.216, "color": 0x429EB0 },
+    "Cs" : { 'z': 55,  "radius": 0.343, "color": 0x57178F },
+    "Ba" : { 'z': 56,  "radius": 0.268, "color": 0x00C900 },
+    "La" : { 'z': 57,  "radius": 0.240, "color": 0x70D4FF },
+    "Ce" : { 'z': 58,  "radius": 0.235, "color": 0xFFFFC7 },
+    "Pr" : { 'z': 59,  "radius": 0.239, "color": 0xD9FFC7 },
+    "Nd" : { 'z': 60,  "radius": 0.229, "color": 0xC7FFC7 },
+    "Pm" : { 'z': 61,  "radius": 0.236, "color": 0xA3FFC7 },
+    "Sm" : { 'z': 62,  "radius": 0.229, "color": 0x8FFFC7 },
+    "Eu" : { 'z': 63,  "radius": 0.233, "color": 0x61FFC7 },
+    "Gd" : { 'z': 64,  "radius": 0.237, "color": 0x45FFC7 },
+    "Tb" : { 'z': 65,  "radius": 0.221, "color": 0x30FFC7 },
+    "Dy" : { 'z': 66,  "radius": 0.229, "color": 0x1FFFC7 },
+    "Ho" : { 'z': 67,  "radius": 0.216, "color": 0x00FF9C },
+    "Er" : { 'z': 68,  "radius": 0.235, "color": 0x00E675 },
+    "Tm" : { 'z': 69,  "radius": 0.227, "color": 0x00D452 },
+    "Yb" : { 'z': 70,  "radius": 0.242, "color": 0x00BF38 },
+    "Lu" : { 'z': 71,  "radius": 0.221, "color": 0x00AB24 },
+    "Hf" : { 'z': 72,  "radius": 0.212, "color": 0x4DC2FF },
+    "Ta" : { 'z': 73,  "radius": 0.217, "color": 0x4DA6FF },
+    "W"  : { 'z': 74,  "radius": 0.210, "color": 0x2194D6 },
+    "Re" : { 'z': 75,  "radius": 0.217, "color": 0x267DAB },
+    "Os" : { 'z': 76,  "radius": 0.216, "color": 0x266696 },
+    "Ir" : { 'z': 77,  "radius": 0.202, "color": 0x175487 },
+    "Pt" : { 'z': 78,  "radius": 0.209, "color": 0xD0D0E0 },
+    "Au" : { 'z': 79,  "radius": 0.166, "color": 0xFFD123 },
+    "Hg" : { 'z': 80,  "radius": 0.209, "color": 0xB8B8D0 },
+    "Tl" : { 'z': 81,  "radius": 0.196, "color": 0xA6544D },
+    "Pb" : { 'z': 82,  "radius": 0.202, "color": 0x575961 },
+    "Bi" : { 'z': 83,  "radius": 0.207, "color": 0x9E4FB5 },
+    "Po" : { 'z': 84,  "radius": 0.197, "color": 0xAB5C00 },
+    "At" : { 'z': 85,  "radius": 0.202, "color": 0x754F45 },
+    "Rn" : { 'z': 86,  "radius": 0.220, "color": 0x428296 },
+    "Fr" : { 'z': 87,  "radius": 0.348, "color": 0x420066 },
+    "Ra" : { 'z': 88,  "radius": 0.283, "color": 0x007D00 },
+    "Ac" : { 'z': 89,  "radius": 0.260, "color": 0x70ABFA },
+    "Th" : { 'z': 90,  "radius": 0.237, "color": 0x00BAFF },
+    "Pa" : { 'z': 91,  "radius": 0.243, "color": 0x00A1FF },
+    "U"  : { 'z': 92,  "radius": 0.240, "color": 0x008FFF },
+    "Np" : { 'z': 93,  "radius": 0.221, "color": 0x0080FF },
+    "Pu" : { 'z': 94,  "radius": 0.243, "color": 0x006BFF },
+    "Am" : { 'z': 95,  "radius": 0.244, "color": 0x545CF2 },
+    "Cm" : { 'z': 96,  "radius": 0.245, "color": 0x785CE3 },
+    "Bk" : { 'z': 97,  "radius": 0.244, "color": 0x8A4FE3 },
+    "Cf" : { 'z': 98,  "radius": 0.245, "color": 0xA136D4 },
+    "Es" : { 'z': 99,  "radius": 0.245, "color": 0xB31FD4 },
+    "Fm" : { 'z': 100, "radius": 0.400, "color": 0xB31FBA },
+    "Md" : { 'z': 101, "radius": 0.400, "color": 0xB30DA6 },
+    "No" : { 'z': 102, "radius": 0.400, "color": 0xBD0D87 },
+    "Lr" : { 'z': 103, "radius": 0.400, "color": 0xC70066 },
+    "Rf" : { 'z': 104, "radius": 0.400, "color": 0xCC0059 },
+    "Db" : { 'z': 105, "radius": 0.400, "color": 0xD1004F },
+    "Sg" : { 'z': 106, "radius": 0.400, "color": 0xD90045 },
+    "Bh" : { 'z': 107, "radius": 0.400, "color": 0xE00038 },
+    "Hs" : { 'z': 108, "radius": 0.400, "color": 0xE6002E },
+    "Mt" : { 'z': 109, "radius": 0.400, "color": 0xEB0026 },
+    "Ds" : { 'z': 110, "radius": 0.400, "color": 0x000000 },
+    "Rg" : { 'z': 111, "radius": 0.400, "color": 0x000000 },
+    "Cn" : { 'z': 112, "radius": 0.400, "color": 0x000000 },
+    "Nh" : { 'z': 113, "radius": 0.400, "color": 0x000000 },
+    "Fl" : { 'z': 114, "radius": 0.400, "color": 0x000000 },
+    "Mc" : { 'z': 115, "radius": 0.400, "color": 0x000000 },
+    "Lv" : { 'z': 116, "radius": 0.400, "color": 0x000000 },
+    "Ts" : { 'z': 117, "radius": 0.400, "color": 0x000000 },
+    "Og" : { 'z': 118, "radius": 0.400, "color": 0x000000 },
+};
+var atoms   = [];
+var spheres = [];
+var bonds = [];
+var bonds = [];
+const loadAtoms = (atoms) => {
+	spheres = new Array(atoms.length);
+	for (const atom in atoms) {
+		let geometry      = new SphereGeometry( atomic_models[atoms[atom]["atomType"]]["radius"], 12, 12 );
+		let material      = new MeshStandardMaterial( { color: atomic_models[atoms[atom]["atomType"]]["color"] });
+		let mesh          = new Mesh( geometry, material );
+		mesh.position.set( atoms[atom]["coordinates"].x, atoms[atom]["coordinates"].y, atoms[atom]["coordinates"].z );
+		spheres[Number(atom)] = mesh;
+		console.log(atoms[atom]["atomType"]);
+		scene.add(mesh);
+	}
+};
+
+const loadLines = (obj) => {
+  lines = {};
+  for (const pair in obj.distances) {
+    const parsedPair = pair.split(',').map( v => { return Number(v) } );
+    const points     = [obj.coordinates[parsedPair[0]], obj.coordinates[parsedPair[1]]];
+    const geometry   = new BufferGeometry().setFromPoints(points);
+    const material   = new LineBasicMaterial({ color: 0xFF0000 })
+    const line       = new Line(geometry, material);
+    lines[pair]      = line;
+    scene.add(line);
+  }
+}; //loadLines(obj);
+
+const updateSpheres = (coordinates) => {
+  for (const key in coordinates) {
+    spheres[Number(key)].position.set( coordinates[key].x, coordinates[key].y, coordinates[key].z );
+  }
+};
+
+const updateLines = (obj) => {
+  for (const pair in obj.distances) {
+    const parsedPair = pair.split( ',' ).map( v => { return Number(v) } );
+    const points     = [obj.coordinates[parsedPair[0]], obj.coordinates[parsedPair[1]]];
+    lines[pair].geometry = new BufferGeometry().setFromPoints(points);
+  }
+};
 
 // PDBParser.js
 class PDBParser {
@@ -56497,22 +56660,25 @@ class PDBParser {
 	parseAtomLine(line) {
 		// PDB format specific indices
 		const atomNumber 	= parseInt(line.substring(6, 11).trim(), 10); // Atom number
-		const atomName      = line.substring(12, 16).trim();
+		const atomName 		= line.substring(12, 16).trim();
 		const residueName 	= line.substring(17, 20).trim();
 		const chainId 		= line.charAt(21);
 		const residueSeqNum = line.substring(22, 26).trim();
-		const x 			= parseFloat(line.substring(30, 38).trim());
-		const y 			= parseFloat(line.substring(38, 46).trim());
-		const z 			= parseFloat(line.substring(46, 54).trim());
+		const atomType 		= line.substring(76, 78).trim(); // Atom type
+		const x = parseFloat(line.substring(30, 38).trim());
+		const y = parseFloat(line.substring(38, 46).trim());
+		const z = parseFloat(line.substring(46, 54).trim());
 		return {
 			atomNumber,
 			atomName,
 			residueName,
 			chainId,
 			residueSeqNum,
-			coordinates: new Vector3(x, y, z)
+			atomType,
+			coordinates: { x, y, z }
 		};
-	};
+  	};
+
 	getAtoms() {
 		return this.atoms;
 	};
@@ -56526,10 +56692,9 @@ class PDBParser {
 };
 
 
-var atoms = []; var bonds = [];
+
 
 document.getElementById('browse-pdb').onchange = function() {
-	let atoms;
 	const CoM 	  = new Vector3(0, 0, 0);
 	const file    = this.files[this.files.length-1];
 	const reader  = new FileReader(); reader.readAsText(file);
@@ -56538,10 +56703,10 @@ document.getElementById('browse-pdb').onchange = function() {
 		const lines  = text.split('\n');
 		const parser = new PDBParser(lines);
 		parser.parse();
-		atoms  		 = parser.getAtoms();
-		parser.printAtoms();
+		atoms = parser.getAtoms();
+		document.getElementById('browse-pdb').value = "";
+		loadAtoms(atoms);
 	};
-	document.getElementById('browse-pdb').value = "";
 };
 
 document.getElementById('clear').onclick = function() {
@@ -56627,177 +56792,6 @@ document.getElementById('clear').onclick = function() {
   renderer.render( scene, camera );
 }
 
-////////////////////////////
-// Cube:
-//    
-//    5------6
-//   /|     /|
-//  4------7 |
-//  | 1----|-2
-//  |/     |/
-//  0------3
-// 
-// add rest (mass, charge)
-const cubeGraphDict = {
-  0: {neighbors: [1,3,4], component: 'cube', type: 'external'},
-  1: {neighbors: [0,2,5], component: 'cube', type: 'external'},
-  2: {neighbors: [1,3,6], component: 'cube', type: 'external'},
-  3: {neighbors: [0,2,7], component: 'cube', type: 'external'},
-  4: {neighbors: [0,5,7], component: 'cube', type: 'external'},
-  5: {neighbors: [1,4,6], component: 'cube', type: 'external'},
-  6: {neighbors: [2,5,7], component: 'cube', type: 'external'},
-  7: {neighbors: [3,4,6], component: 'cube', type: 'external'}
-};
-const cubeCoordinateDict = {
-  0: new Vector3(-1, -1, -1),
-  1: new Vector3(-1,  1, -1),
-  2: new Vector3( 1,  1, -1),
-  3: new Vector3( 1, -1, -1),
-  4: new Vector3(-1, -1,  1),
-  5: new Vector3(-1,  1,  1),
-  6: new Vector3( 1,  1,  1),
-  7: new Vector3( 1, -1,  1)
-}
-const cubeComponentDict = {
-  cube : {internal: {distanceConstant:   10, angleConstant:   10, dihedralConstant:   10},
-          external: {distanceConstant: 10000, angleConstant: 1000, dihedralConstant: 1000}
-  }
-};
-
-const lineGraphDict = { // Including mass will have to be calculated in each of the force equations
-  0: {neighbors:   [1], component: 'line', type: 'external', mass: 1},
-  1: {neighbors: [0,2], component: 'line', type: 'external', mass: 1},
-  2: {neighbors: [1,3], component: 'line', type: 'external', mass: 1},
-  3: {neighbors:   [2], component: 'line', type: 'external', mass: 1}
-};
-const lineCoordinateDict = {
-  0: new Vector3(-3, 0, 0),
-  1: new Vector3(-1, 0, 0),
-  2: new Vector3( 1, 0, 0),
-  3: new Vector3( 3, 0, 0)
-};
-const lineComponentDict = {
-  line: {internal: {distanceConstant:   10, angleConstant:   10, dihedralConstant:   10},
-         external: {distanceConstant: 10000, angleConstant: 1000, dihedralConstant: 1000}}
-}
-
-const meshGraphDict = {
-   0: {neighbors:       [1,4], component: 'mesh', type: 'external', mass: 1},
-   1: {neighbors:     [0,2,5], component: 'mesh', type: 'external', mass: 1},
-   2: {neighbors:     [1,3,6], component: 'mesh', type: 'external', mass: 1},
-   3: {neighbors:       [2,7], component: 'mesh', type: 'external', mass: 1},
-   4: {neighbors:     [0,5,8], component: 'mesh', type: 'external', mass: 1},
-   5: {neighbors:   [1,4,6,9], component: 'mesh', type: 'external', mass: 1},
-   6: {neighbors:  [2,5,7,10], component: 'mesh', type: 'external', mass: 1},
-   7: {neighbors:    [3,6,11], component: 'mesh', type: 'external', mass: 1},
-   8: {neighbors:    [4,9,12], component: 'mesh', type: 'external', mass: 1},
-   9: {neighbors: [5,8,10,13], component: 'mesh', type: 'external', mass: 1},
-  10: {neighbors: [6,9,11,14], component: 'mesh', type: 'external', mass: 1},
-  11: {neighbors:   [7,10,15], component: 'mesh', type: 'external', mass: 1},
-  12: {neighbors:      [8,13], component: 'mesh', type: 'external', mass: 1},
-  13: {neighbors:   [9,12,14], component: 'mesh', type: 'external', mass: 1},
-  14: {neighbors:  [10,13,15], component: 'mesh', type: 'external', mass: 1},
-  15: {neighbors:     [11,14], component: 'mesh', type: 'external', mass: 1}
-};
-const meshCoordinateDict = {
-   0: new Vector3(-3, 3, 0),
-   1: new Vector3(-1, 3, 0),
-   2: new Vector3( 1, 3, 0),
-   3: new Vector3( 3, 3, 0),
-   4: new Vector3(-3, 1, 0),
-   5: new Vector3(-1, 1, 0),
-   6: new Vector3( 1, 1, 0),
-   7: new Vector3( 3, 1, 0),
-   8: new Vector3(-3,-1, 0),
-   9: new Vector3(-1,-1, 0),
-  10: new Vector3( 1,-1, 0),
-  11: new Vector3( 3,-1, 0),
-  12: new Vector3(-3,-3, 0),
-  13: new Vector3(-1,-3, 0),
-  14: new Vector3( 1,-3, 0),
-  15: new Vector3( 3,-3, 0)
-};
-const meshComponentDict = {
-  mesh: {internal: {distanceConstant:  100, angleConstant:  100, dihedralConstant:  100},
-         external: {distanceConstant: 10000, angleConstant: 1000, dihedralConstant: 1000}}
-}
-
-const miniGraphDict = {
-  0: {neighbors:       [1,3], component: 'mini', type: 'external', mass: 1},
-  1: {neighbors:     [0,2,4], component: 'mini', type: 'external', mass: 1},
-  2: {neighbors:       [1,5], component: 'mini', type: 'external', mass: 1},
-  3: {neighbors:     [0,4,6], component: 'mini', type: 'external', mass: 1},
-  4: {neighbors:   [1,3,5,7], component: 'mini', type: 'external', mass: 1},
-  5: {neighbors:     [2,4,8], component: 'mini', type: 'external', mass: 1},
-  6: {neighbors:       [3,7], component: 'mini', type: 'external', mass: 1},
-  7: {neighbors:     [4,6,8], component: 'mini', type: 'external', mass: 1},
-  8: {neighbors:       [5,7], component: 'mini', type: 'external', mass: 1},
-};
-const miniCoordinateDict = {
-  0: new Vector3(-2, 2, 0),
-  1: new Vector3( 0, 2, 0),
-  2: new Vector3( 2, 2, 0),
-  3: new Vector3(-2, 0, 0),
-  4: new Vector3( 0, 0, 0),
-  5: new Vector3( 2, 0, 0),
-  6: new Vector3(-2,-2, 0),
-  7: new Vector3( 0,-2, 0),
-  8: new Vector3( 2,-2, 0),
-};
-const miniComponentDict = {
-  mini: {internal: {distanceConstant:  100, angleConstant:  100, dihedralConstant:  100},
-         external: {distanceConstant: 10000, angleConstant: 1000, dihedralConstant: 1000}}
-}
-// let cube = new ObjectPDD(cubeGraphDict, cubeCoordinateDict, cubeComponentDict);
-// let line = new ObjectPDD(lineGraphDict, lineCoordinateDict, lineComponentDict);
-// let mesh = new ObjectPDD(meshGraphDict, meshCoordinateDict, meshComponentDict);
-// let mini = new ObjectPDD(miniGraphDict, miniCoordinateDict, miniComponentDict);
-
-// let obj = cube;
-// NEXT IMPLEMENT SPHERES AND LINES
-
-// Implementing visualization:
-let spheres;
-let lines;
-
-const loadSpheres = (coordinates) => {
-  spheres = new Array(Object.keys(coordinates).length);
-  for (const key in coordinates) {
-    let geometry      = new SphereGeometry( .5, 24, 24 );
-    let material      = new MeshStandardMaterial( { color: 0x555555 });
-    let mesh          = new Mesh( geometry, material );
-    mesh.position.set( coordinates[key].x, coordinates[key].y, coordinates[key].z );
-    spheres[Number(key)] = mesh;
-    scene.add(mesh);
-  }
-}; //loadSpheres(obj.coordinates)
-
-const loadLines = (obj) => {
-  lines = {};
-  for (const pair in obj.distances) {
-    const parsedPair = pair.split( ',' ).map( v => { return Number(v) } );
-    const points     = [obj.coordinates[parsedPair[0]], obj.coordinates[parsedPair[1]]];
-    const geometry   = new BufferGeometry().setFromPoints(points);
-    const material   = new LineBasicMaterial({ color: 0xFF0000 })
-    const line       = new Line(geometry, material);
-    lines[pair]      = line;
-    scene.add(line);
-  }
-}; //loadLines(obj);
-
-const updateSpheres = (coordinates) => {
-  for (const key in coordinates) {
-    spheres[Number(key)].position.set( coordinates[key].x, coordinates[key].y, coordinates[key].z );
-  }
-};
-
-const updateLines = (obj) => {
-  for (const pair in obj.distances) {
-    const parsedPair = pair.split( ',' ).map( v => { return Number(v) } );
-    const points     = [obj.coordinates[parsedPair[0]], obj.coordinates[parsedPair[1]]];
-    lines[pair].geometry = new BufferGeometry().setFromPoints(points);
-  }
-};
 
 const updateObject = (object, spheres) => {
   for ( const key in object.coordinates ) {
@@ -56807,17 +56801,19 @@ const updateObject = (object, spheres) => {
 
 const updateFPS = (fps) => { document.getElementById('fps').innerText = "FPS: ".concat(String(fps)) };
 var ctr = 0; const animate = () => {
-  requestAnimationFrame( animate );
-  let end = clock.getDelta();
-  controller.Update();
-  end = clock.getDelta();
-//   obj.verlet();
-//   updateLines(obj)
-//   updateSpheres(obj.coordinates);
-//   updateObject(obj, spheres);
-  ((ctr++ % 20 == 0) ? updateFPS((Math.min(1/end, 60)).toFixed(2)) : '');
-  ((ctr++ % 100 == 0) ? ctr = 0 : '');
-  renderer.render( scene, camera );
+	requestAnimationFrame( animate );
+	if (atoms.length !== 0 /*&& bonds.length !== 0*/) {
+		renderer.render( scene, camera );
+		let end = clock.getDelta();
+		controller.Update();
+		end = clock.getDelta();
+		//   obj.verlet();
+		//   updateLines(obj)
+		//   updateSpheres(obj.coordinates);
+		//   updateObject(obj, spheres);
+		((ctr++ % 20 == 0) ? updateFPS((Math.min(1/end, 60)).toFixed(2)) : '');
+		((ctr++ % 100 == 0) ? ctr = 0 : '');
+	}
 }; animate();
 
 window.addEventListener('keydown', (e) => {
