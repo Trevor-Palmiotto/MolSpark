@@ -56475,9 +56475,8 @@ class CameraController {
         this._zoom.update();
     };
 };
-// DEPENDENCIES DONE
 
-var atoms = []; var bonds = [];
+// ------------------- DEPENDENCIES DONE -------------------
 
 // PDBParser.js
 class PDBParser {
@@ -56514,7 +56513,6 @@ class PDBParser {
 			coordinates: new Vector3(x, y, z)
 		};
 	};
-
 	getAtoms() {
 		return this.atoms;
 	};
@@ -56528,10 +56526,7 @@ class PDBParser {
 };
 
 
-// Example usage
-
-// Load a PDB file (make sure to adjust the file path)
-
+var atoms = []; var bonds = [];
 
 document.getElementById('browse-pdb').onchange = function() {
 	let atoms;
