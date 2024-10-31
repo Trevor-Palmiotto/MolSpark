@@ -54598,7 +54598,6 @@ class TrackballControls extends EventDispatcher {
 		}() );
 
 		const getMouseOnCircle = ( function () {
-
 			const vector = new Vector2();
 
 			return function getMouseOnCircle( pageX, pageY ) {
@@ -56609,7 +56608,6 @@ const loadAtoms = (atoms) => {
 		let mesh          = new Mesh( geometry, material );
 		mesh.position.set( atoms[atom]["coordinates"].x, atoms[atom]["coordinates"].y, atoms[atom]["coordinates"].z );
 		spheres[Number(atom)] = mesh;
-		console.log(atoms[atom]["atomType"]);
 		scene.add(mesh);
 	}
 };
@@ -56710,9 +56708,10 @@ document.getElementById('browse-pdb').onchange = function() {
 };
 
 document.getElementById('clear').onclick = function() {
-	atomList.forEach(function( v, i, a ) { scene.remove(v.mesh) });
-	bondList.forEach(function( v, i, a ) { scene.remove( v[0] ); scene.remove( v[1] )});
-	atomList = []; bondList = [];
+	console.log("clear");
+	spheres.forEach(function( v, i, a ) { scene.remove(v) });
+	// bondList.forEach(function( v, i, a ) { scene.remove( v[0] ); scene.remove( v[1] )});
+	spheres = [];
 	renderer.render( scene, camera );
 };
 
@@ -56749,48 +56748,42 @@ var pointIntersect = new Vector3(); // point of intersection with an object (pla
 var shift          = new Vector3(); // distance between position of an object and points of intersection with the object
 const plane_normal = new Vector3( 0, 1, 0 ); // plane's normal
 
-document.addEventListener('pointerdown', function(e) {
-  var intersects = raycaster.intersectObjects( scene.children );
+// document.addEventListener('pointerdown', function(e) {
+//   var intersects = raycaster.intersectObjects( scene.children );
   
-  scroll_ctr = 0;
-  for ( let i = 0; i < intersects.length; i++ ) {
-    if (intersects[i].object.type == "Mesh") {
-      controller.Disable()
-      pointIntersect.copy(intersects[i].point);
-      plane.setFromNormalAndCoplanarPoint(plane_normal, pointIntersect);
-      shift.subVectors(intersects[i].object.position, intersects[i].point);
-      dragObject = intersects[i].object;
-      y_start = dragObject.position.y;
-      break;
-    }
-  }
-});
+//   scroll_ctr = 0;
+//   for ( let i = 0; i < intersects.length; i++ ) {
+//     if (intersects[i].object.type == "Mesh") {
+//       controller.Disable()
+//       pointIntersect.copy(intersects[i].point);
+//       plane.setFromNormalAndCoplanarPoint(plane_normal, pointIntersect);
+//       shift.subVectors(intersects[i].object.position, intersects[i].point);
+//       dragObject = intersects[i].object;
+//       y_start = dragObject.position.y;
+//       break;
+//     }
+//   }
+// });
 
-document.addEventListener('wheel', e => {
-  if (dragObject != null) {
-    dragObject.position.y += scroll_rate*(Number(e.deltaY > 0)*2-1);
-    scroll_ctr += (Number(e.deltaY > 0)*2-1);
-  }
-});
-document.addEventListener("pointermove", e => {
-  mouse = new Vector2( ( e.clientX / window.innerWidth ) * 2 - 1, -( e.clientY / window.innerHeight ) * 2 + 1 );
-  raycaster.setFromCamera(mouse, camera);
-  if (dragObject) {
-    raycaster.ray.intersectPlane(plane, planeIntersect);
-    dragObject.position.addVectors(planeIntersect, shift);
-    dragObject.position.y = y_start + scroll_rate*scroll_ctr
-  }
-});
-document.addEventListener("pointerup", () => {
-	dragObject = null; controller.Enable()
-});
+// document.addEventListener('wheel', e => {
+//   if (dragObject != null) {
+//     dragObject.position.y += scroll_rate*(Number(e.deltaY > 0)*2-1);
+//     scroll_ctr += (Number(e.deltaY > 0)*2-1);
+//   }
+// });
+// document.addEventListener("pointermove", e => {
+//   mouse = new Vector2( ( e.clientX / window.innerWidth ) * 2 - 1, -( e.clientY / window.innerHeight ) * 2 + 1 );
+//   raycaster.setFromCamera(mouse, camera);
+//   if (dragObject) {
+//     raycaster.ray.intersectPlane(plane, planeIntersect);
+//     dragObject.position.addVectors(planeIntersect, shift);
+//     dragObject.position.y = y_start + scroll_rate*scroll_ctr
+//   }
+// });
+// document.addEventListener("pointerup", () => {
+// 	dragObject = null; controller.Enable()
+// });
 
-document.getElementById('clear').onclick = function() {
-  atomList.forEach(function( v, i, a ) { scene.remove(v.mesh) });
-  bondList.forEach(function( v, i, a ) { scene.remove( v[0] ); scene.remove( v[1] )});
-  atomList = []; bondList = [];
-  renderer.render( scene, camera );
-}
 
 
 const updateObject = (object, spheres) => {
