@@ -56476,6 +56476,7 @@ class CameraController {
 };
 
 // ------------------- DEPENDENCIES DONE -------------------
+// radius in nanometers
 const atomic_models = {
     "H"  : { 'z': 1,   "radius": 0.120, "color": 0xEEEEEE },
     "He" : { 'z': 2,   "radius": 0.140, "color": 0xD9FFFF },
@@ -56599,30 +56600,34 @@ const atomic_models = {
 var atoms   = [];
 var spheres = [];
 var bonds = [];
-var bonds = [];
+var lines = [];
+
 const loadAtoms = (atoms) => {
-	spheres = new Array(atoms.length);
+	spheres = [0];
 	for (const atom in atoms) {
-		let geometry      = new SphereGeometry( 2*atomic_models[atoms[atom]["atomType"]]["radius"], 18, 18 );
+		let geometry      = new SphereGeometry( 0.2*atomic_models[atoms[atom]["atomType"]]["radius"], 18, 18 );
 		let material      = new MeshStandardMaterial( { color: atomic_models[atoms[atom]["atomType"]]["color"] });
 		let mesh          = new Mesh( geometry, material );
 		mesh.position.set( atoms[atom]["coordinates"].x, atoms[atom]["coordinates"].y, atoms[atom]["coordinates"].z );
-		spheres[Number(atom)] = mesh;
+		spheres.push(mesh);
 		scene.add(mesh);
 	}
 };
 
-const loadLines = (obj) => {
-  lines = {};
-  for (const pair in obj.distances) {
-    const parsedPair = pair.split(',').map( v => { return Number(v) } );
-    const points     = [obj.coordinates[parsedPair[0]], obj.coordinates[parsedPair[1]]];
-    const geometry   = new BufferGeometry().setFromPoints(points);
-    const material   = new LineBasicMaterial({ color: 0xFF0000 })
-    const line       = new Line(geometry, material);
-    lines[pair]      = line;
-    scene.add(line);
-  }
+const loadBonds = (obj) => {
+	lines = [];
+	for (const i in atoms) {
+		for (const j in atoms) {
+			if (i === j) continue;
+			const idealBondDist = atomic_models[atoms[i]["atomType"]]["radius"] + atomic_models[atoms[atom]["atomType"]]["radius"]
+			const points     = [obj.coordinates[parsedPair[0]], obj.coordinates[parsedPair[1]]];
+			const geometry   = new BufferGeometry().setFromPoints(points);
+			const material   = new LineBasicMaterial({ color: 0xFF0000 })
+			const line       = new Line(geometry, material);
+			lines[pair]      = line;
+			scene.add(line);
+		}
+	}
 }; //loadLines(obj);
 
 const updateSpheres = (coordinates) => {
@@ -56673,7 +56678,7 @@ class PDBParser {
 			chainId,
 			residueSeqNum,
 			atomType,
-			coordinates: { x, y, z }
+			coordinates: new Vector3(x, y, z).divideScalar(10)
 		};
   	};
 
@@ -56710,7 +56715,6 @@ document.getElementById('browse-pdb').onchange = function() {
 document.getElementById('clear').onclick = function() {
 	console.log("clear");
 	spheres.forEach(function( v, i, a ) { scene.remove(v) });
-	// bondList.forEach(function( v, i, a ) { scene.remove( v[0] ); scene.remove( v[1] )});
 	spheres = [];
 	renderer.render( scene, camera );
 };
@@ -56726,14 +56730,14 @@ const ambientLight = new AmbientLight( 0xFFFFFF );
 const camera       = new PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 500 );
 const controller   = new CameraController(camera, renderer.domElement);
 scene.background   = new Color( 0xFFFFFF );
-scene.fog          = new Fog( 0xFFFFFFF, 10, 200 ); // fog depth will eventually be scrollable? with a key input
+scene.fog          = new Fog( 0xFFFFFFF, 10, 200 ); // fog depth will eventually be scrollable? with a key input (mousewheel), have button to toggle between mouse and keypad
 
 pointLight.position.set( 0, 10, 0 );
 // scene.add(pointLight, lightHelper, ambientLight, gridHelper);
 scene.add(pointLight, ambientLight, gridHelper);
 renderer.setPixelRatio( window.devicePixelRatio );
 renderer.setSize( window.innerWidth, window.innerHeight );
-camera.position.set( 10, 10, 10 );
+camera.position.set( 1, 1, 1 );
 
 
 
