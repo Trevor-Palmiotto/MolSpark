@@ -56615,20 +56615,25 @@ const loadAtoms = (atoms) => {
 };
 
 const loadBonds = (obj) => {
-	lines = [];
+	lines 		  = {};
+	let threshold = 0.05;
 	for (const i in atoms) {
 		for (const j in atoms) {
 			if (i === j) continue;
-			const idealBondDist = atomic_models[atoms[i]["atomType"]]["radius"] + atomic_models[atoms[atom]["atomType"]]["radius"]
-			const points     = [obj.coordinates[parsedPair[0]], obj.coordinates[parsedPair[1]]];
-			const geometry   = new BufferGeometry().setFromPoints(points);
-			const material   = new LineBasicMaterial({ color: 0xFF0000 })
-			const line       = new Line(geometry, material);
-			lines[pair]      = line;
+			const idealBondDist  = (atomic_models[atoms[i]["atomType"]]["radius"] + atomic_models[atoms[j]["atomType"]]["radius"])/2
+			const atomicDist	 = atoms[i]["coordinates"].distanceTo(atoms[j]["coordinates"]);
+			if (Math.abs(idealBondDist-atomicDist) > threshold) continue;
+
+			const points     	 = [atoms[i]["coordinates"], atoms[j]["coordinates"]];
+			const geometry   	 = new BufferGeometry().setFromPoints(points);
+			const material   	 = new LineBasicMaterial({ color: 0xFF0000 })
+			const line       	 = new Line(geometry, material);
+			lines[[i, j].sort()] = line;
 			scene.add(line);
 		}
 	}
-}; //loadLines(obj);
+	console.log(Object.keys(lines).length)
+};
 
 const updateSpheres = (coordinates) => {
   for (const key in coordinates) {
@@ -56678,7 +56683,7 @@ class PDBParser {
 			chainId,
 			residueSeqNum,
 			atomType,
-			coordinates: new Vector3(x, y, z).divideScalar(10)
+			coordinates: new Vector3(x, y, z).divideScalar(10) // angstroms to nanometers
 		};
   	};
 
@@ -56709,13 +56714,15 @@ document.getElementById('browse-pdb').onchange = function() {
 		atoms = parser.getAtoms();
 		document.getElementById('browse-pdb').value = "";
 		loadAtoms(atoms);
+		loadBonds(atoms);
 	};
 };
 
 document.getElementById('clear').onclick = function() {
-	console.log("clear");
 	spheres.forEach(function( v, i, a ) { scene.remove(v) });
+	// lines.forEach(function( v, i, a ) { scene.remove(v) });
 	spheres = [];
+	// lines = [];
 	renderer.render( scene, camera );
 };
 
