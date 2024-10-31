@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="MolSparkV1.png" />
+    <link rel="icon" type="image/svg+xml" href="MolsparkV2.png" />
 	<style>
 	@import url("https://use.typekit.net/jmk3xov.css");
 	body {
@@ -56604,7 +56604,7 @@ var bonds = [];
 const loadAtoms = (atoms) => {
 	spheres = new Array(atoms.length);
 	for (const atom in atoms) {
-		let geometry      = new SphereGeometry( atomic_models[atoms[atom]["atomType"]]["radius"], 12, 12 );
+		let geometry      = new SphereGeometry( 2*atomic_models[atoms[atom]["atomType"]]["radius"], 18, 18 );
 		let material      = new MeshStandardMaterial( { color: atomic_models[atoms[atom]["atomType"]]["color"] });
 		let mesh          = new Mesh( geometry, material );
 		mesh.position.set( atoms[atom]["coordinates"].x, atoms[atom]["coordinates"].y, atoms[atom]["coordinates"].z );
