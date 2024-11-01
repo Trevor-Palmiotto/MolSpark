@@ -56597,13 +56597,13 @@ const atomic_models = {
     "Ts" : { 'z': 117, "radius": 0.400, "color": 0x000000 },
     "Og" : { 'z': 118, "radius": 0.400, "color": 0x000000 },
 };
-var atoms   = [];
-var spheres = [];
-var bonds = [];
-var lines = [];
+var atoms     = [];
+var spheres   = [];
+var bonds 	  = {};
+var cylinders = {};
 
 const loadAtoms = (atoms) => {
-	spheres = [0];
+	spheres = [0]; // not fast to reinit every time
 	for (const atom in atoms) {
 		let geometry      = new SphereGeometry( 0.2*atomic_models[atoms[atom]["atomType"]]["radius"], 18, 18 );
 		let material      = new MeshStandardMaterial( { color: atomic_models[atoms[atom]["atomType"]]["color"] });
@@ -56615,45 +56615,40 @@ const loadAtoms = (atoms) => {
 };
 
 const loadBonds = (obj) => {
-	lines 		  = {};
+	const keys = Array.from({ length: atoms.length }, (_, i) => i)
+	bonds = Object.fromEntries(keys.map(key => [key, []])); // not fast to reinit every time
 	let threshold = 0.05;
 	for (const i in atoms) {
 		for (const j in atoms) {
 			
 			// checking if bond should occur
 			if (i === j) continue;
-			const points   = [atoms[i]["coordinates"], atoms[j]["coordinates"]];
-			const ideal    = (atomic_models[atoms[i]["atomType"]]["radius"] + atomic_models[atoms[j]["atomType"]]["radius"])/2
-			const distance = points[0].distanceTo(points[1]);
+			const pointA   = atoms[i]["coordinates"];
+			const pointB   = atoms[j]["coordinates"];
+			const ideal    = (atomic_models[atoms[i]["atomType"]]["radius"] + atomic_models[atoms[j]["atomType"]]["radius"])/2;
+			const distance = pointA.distanceTo(pointB);
+			
 			if (Math.abs(ideal-distance) > threshold) continue;
 
-			// Calculate the midpoint and distance
-			const midpoint = new Vector3().addVectors(points[0], points[1]).multiplyScalar(0.5);
-			
-			// Create cylinder geometry with height equal to the distance
-			const geometry = new CylinderGeometry(0.05, 0.05, distance, 8).setFromPoints(points);
+			const midpoint = new Vector3().addVectors(pointA, pointB).multiplyScalar(0.5);
+			const geometry = new CylinderGeometry(0.01, 0.01, distance, 8);
 
 			// Create the cylinder mesh
 			const material = new MeshStandardMaterial({ color: 0xaaaaaa });
 			const cylinder = new Mesh(geometry, material);
 
-			// Position the cylinder at the midpoint
-			// cylinder.position.copy(midpoint);
+			// Position the cylinder
+			cylinder.position.copy(midpoint);
+			cylinder.lookAt(pointB);
+			cylinder.rotateX(Math.PI / 2);
 
-			// Align the cylinder to point from A to B
-			// cylinder.lookAt(pointB);
-			// cylinder.rotateX(Math.PI / 2);  // Rotate to match Three.js default orientation
-
-			// Add the cylinder to the scene
+			// storing the bond
 			scene.add(cylinder);
-
-
-			// const geometry   	 = new BufferGeometry().setFromPoints(points);
-			// const material   	 = new LineBasicMaterial({ color: 0xFF0000 })
-			// lines[[i, j].sort()] = line;
+			cylinders[[i, j]] = cylinder;
+			bonds[i].push(j);
+			bonds[j].push(i);
 		}
 	}
-	// console.log(Object.keys(lines).length)
 };
 
 const updateSpheres = (coordinates) => {
