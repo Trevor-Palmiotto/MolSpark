@@ -56619,20 +56619,41 @@ const loadBonds = (obj) => {
 	let threshold = 0.05;
 	for (const i in atoms) {
 		for (const j in atoms) {
+			
+			// checking if bond should occur
 			if (i === j) continue;
-			const idealBondDist  = (atomic_models[atoms[i]["atomType"]]["radius"] + atomic_models[atoms[j]["atomType"]]["radius"])/2
-			const atomicDist	 = atoms[i]["coordinates"].distanceTo(atoms[j]["coordinates"]);
-			if (Math.abs(idealBondDist-atomicDist) > threshold) continue;
+			const points   = [atoms[i]["coordinates"], atoms[j]["coordinates"]];
+			const ideal    = (atomic_models[atoms[i]["atomType"]]["radius"] + atomic_models[atoms[j]["atomType"]]["radius"])/2
+			const distance = points[0].distanceTo(points[1]);
+			if (Math.abs(ideal-distance) > threshold) continue;
 
-			const points     	 = [atoms[i]["coordinates"], atoms[j]["coordinates"]];
-			const geometry   	 = new BufferGeometry().setFromPoints(points);
-			const material   	 = new LineBasicMaterial({ color: 0xFF0000 })
-			const line       	 = new Line(geometry, material);
-			lines[[i, j].sort()] = line;
-			scene.add(line);
+			// Calculate the midpoint and distance
+			const midpoint = new Vector3().addVectors(points[0], points[1]).multiplyScalar(0.5);
+			
+			// Create cylinder geometry with height equal to the distance
+			const geometry = new CylinderGeometry(0.05, 0.05, distance, 8).setFromPoints(points);
+
+			// Create the cylinder mesh
+			const material = new MeshStandardMaterial({ color: 0xaaaaaa });
+			const cylinder = new Mesh(geometry, material);
+
+			// Position the cylinder at the midpoint
+			// cylinder.position.copy(midpoint);
+
+			// Align the cylinder to point from A to B
+			// cylinder.lookAt(pointB);
+			// cylinder.rotateX(Math.PI / 2);  // Rotate to match Three.js default orientation
+
+			// Add the cylinder to the scene
+			scene.add(cylinder);
+
+
+			// const geometry   	 = new BufferGeometry().setFromPoints(points);
+			// const material   	 = new LineBasicMaterial({ color: 0xFF0000 })
+			// lines[[i, j].sort()] = line;
 		}
 	}
-	console.log(Object.keys(lines).length)
+	// console.log(Object.keys(lines).length)
 };
 
 const updateSpheres = (coordinates) => {
