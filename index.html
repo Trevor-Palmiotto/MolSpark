@@ -56736,9 +56736,9 @@ document.getElementById('browse-pdb').onchange = function() {
 
 document.getElementById('clear').onclick = function() {
 	spheres.forEach(function( v, i, a ) { scene.remove(v) });
-	// lines.forEach(function( v, i, a ) { scene.remove(v) });
-	spheres = [];
-	// lines = [];
+	Object.keys(cylinders).forEach(function( v, i, a ) { scene.remove(cylinders[v]) });
+	spheres   = []; atoms = [];
+	cylinders = []; bonds = [];
 	renderer.render( scene, camera );
 };
 
