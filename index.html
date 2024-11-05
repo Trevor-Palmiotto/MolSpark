@@ -56625,7 +56625,7 @@ const loadBonds = (obj) => {
 			if (i === j) continue;
 			const pointA   = atoms[i]["coordinates"];
 			const pointB   = atoms[j]["coordinates"];
-			const ideal    = (atomic_models[atoms[i]["atomType"]]["radius"] + atomic_models[atoms[j]["atomType"]]["radius"])/2;
+			const ideal    = ((atomic_models[atoms[i]["atomType"]]["radius"]) + (atomic_models[atoms[j]["atomType"]]["radius"]))/2; // this doesn't work on unknown atom types
 			const distance = pointA.distanceTo(pointB);
 			
 			if (Math.abs(ideal-distance) > threshold) continue;
