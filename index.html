@@ -56616,13 +56616,13 @@ const loadAtoms = (atoms) => {
 
 const loadBonds = (obj) => {
 	const keys = Array.from({ length: atoms.length }, (_, i) => i)
-	bonds = Object.fromEntries(keys.map(key => [key, []])); // not fast to reinit every time
+	bonds = Object.fromEntries(keys.map(key => [key, []])); // not fast to reinit every time a bond is updated
 	let threshold = 0.05;
-	for (const i in atoms) {
-		for (const j in atoms) {
-			
+	for (let i=0; i < atoms.length; i++) { // this needs to be numerized because this is awful memory wise
+		for (let j=i+1; j < atoms.length; j++) {
 			// checking if bond should occur
 			if (i === j) continue;
+			if (atoms[i]["chainId"] !== atoms[j]["chainId"]) continue
 			const pointA   = atoms[i]["coordinates"];
 			const pointB   = atoms[j]["coordinates"];
 			const ideal    = ((atomic_models[atoms[i]["atomType"]]["radius"]) + (atomic_models[atoms[j]["atomType"]]["radius"]))/2; // this doesn't work on unknown atom types
@@ -56649,6 +56649,8 @@ const loadBonds = (obj) => {
 			bonds[j].push(i);
 		}
 	}
+	console.log(Object.keys(cylinders).length) 
+	console.log(atoms.length)
 };
 
 const updateSpheres = (coordinates) => {
@@ -56679,6 +56681,7 @@ class PDBParser {
 					this.atoms.push(atom);
 				}
 			}
+			// if (line.startsWith('TER')) break;
 		}
 	}
 	parseAtomLine(line) {
@@ -56735,8 +56738,12 @@ document.getElementById('browse-pdb').onchange = function() {
 };
 
 document.getElementById('clear').onclick = function() {
-	spheres.forEach(function( v, i, a ) { scene.remove(v) });
-	Object.keys(cylinders).forEach(function( v, i, a ) { scene.remove(cylinders[v]) });
+	if (spheres.length > 0) {
+		spheres.forEach(function( v, i, a ) { scene.remove(v) });
+	}
+	if (Object.keys(cylinders).length > 0) {
+		Object.keys(cylinders).forEach(function( v, i, a ) { scene.remove(cylinders[v]) });
+	}
 	spheres   = []; atoms = [];
 	cylinders = []; bonds = [];
 	renderer.render( scene, camera );
@@ -56819,37 +56826,43 @@ const updateObject = (object, spheres) => {
 }
 
 const updateFPS = (fps) => { document.getElementById('fps').innerText = "FPS: ".concat(String(fps)) };
-var ctr = 0; const animate = () => {
+var ctr = 0; 
+let lastFrameTime = performance.now();
+let frameCount = 0;
+let fps = 0;
+
+const animate = () => {
 	requestAnimationFrame( animate );
-	if (atoms.length !== 0 /*&& bonds.length !== 0*/) {
-		renderer.render( scene, camera );
-		let end = clock.getDelta();
-		controller.Update();
-		end = clock.getDelta();
-		//   obj.verlet();
-		//   updateLines(obj)
-		//   updateSpheres(obj.coordinates);
-		//   updateObject(obj, spheres);
-		((ctr++ % 20 == 0) ? updateFPS((Math.min(1/end, 60)).toFixed(2)) : '');
-		((ctr++ % 100 == 0) ? ctr = 0 : '');
+	const now = performance.now();
+    const delta = now - lastFrameTime;
+    frameCount++;
+	if (atoms.length > 0){
+		if (delta >= 500) { // Update every second
+			fps = frameCount*2;
+			updateFPS(fps);
+			frameCount = 0;
+			lastFrameTime = now;
+		}
 	}
+		renderer.render( scene, camera );
+		controller.Update();
 }; animate();
 
-window.addEventListener('keydown', (e) => {
-  switch(e.key) {
-    case 'ArrowRight':
-      obj.verlet()
-      break;
-    case 'ArrowLeft':
-      for (let coord in obj.coordinates) {
-        obj.coordinates[coord].x = (Math.random()*2-1)*3;
-        obj.coordinates[coord].y = (Math.random()*2-1)*3;
-        obj.coordinates[coord].z = (Math.random()*2-1)*3;
-      };
+// window.addEventListener('keydown', (e) => {
+//   switch(e.key) {
+//     case 'ArrowRight':
+//       obj.verlet()
+//       break;
+//     case 'ArrowLeft':
+//       for (let coord in obj.coordinates) {
+//         obj.coordinates[coord].x = (Math.random()*2-1)*3;
+//         obj.coordinates[coord].y = (Math.random()*2-1)*3;
+//         obj.coordinates[coord].z = (Math.random()*2-1)*3;
+//       };
       
-  }
+//   }
 
-});
+// });
         </script>
   </body>
 </html>
