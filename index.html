@@ -56622,7 +56622,7 @@ const loadBonds = (obj) => {
 		for (let j=i+1; j < atoms.length; j++) {
 			// checking if bond should occur
 			if (i === j) continue;
-			if (atoms[i]["chainId"] !== atoms[j]["chainId"]) continue
+			if (atoms[i]["chainId"] !== atoms[j]["chainId"] || atoms[i]["state"] !== atoms[j]["state"]) continue
 			const pointA   = atoms[i]["coordinates"];
 			const pointB   = atoms[j]["coordinates"];
 			const ideal    = ((atomic_models[atoms[i]["atomType"]]["radius"]) + (atomic_models[atoms[j]["atomType"]]["radius"]))/2; // this doesn't work on unknown atom types
@@ -56674,9 +56674,11 @@ class PDBParser {
 		this.atoms = [];
 	}
 	parse() {
+		let state = 0
 		for (const line of this.pdbData) {
+			if (line.startsWith('MODEL')) state++;
 			if (line.startsWith('ATOM') || line.startsWith('HETATM')) {
-				const atom = this.parseAtomLine(line);
+				const atom = this.parseAtomLine(line, state);
 				if (atom) {
 					this.atoms.push(atom);
 				}
@@ -56684,7 +56686,7 @@ class PDBParser {
 			// if (line.startsWith('TER')) break;
 		}
 	}
-	parseAtomLine(line) {
+	parseAtomLine(line, state) {
 		// PDB format specific indices
 		const atomNumber 	= parseInt(line.substring(6, 11).trim(), 10); // Atom number
 		const atomName 		= line.substring(12, 16).trim();
@@ -56696,6 +56698,7 @@ class PDBParser {
 		const y = parseFloat(line.substring(38, 46).trim());
 		const z = parseFloat(line.substring(46, 54).trim());
 		return {
+			state,
 			atomNumber,
 			atomName,
 			residueName,
