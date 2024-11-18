@@ -56476,7 +56476,7 @@ class CameraController {
 };
 
 // ------------------- DEPENDENCIES DONE -------------------
-// radius in nanometers
+// atomic radius in nanometers -> eventually to covalent radii
 const atomic_models = {
     "H"  : { 'z': 1,   "radius": 0.120, "color": 0xEEEEEE },
     "He" : { 'z': 2,   "radius": 0.140, "color": 0xD9FFFF },
@@ -56597,13 +56597,26 @@ const atomic_models = {
     "Ts" : { 'z': 117, "radius": 0.400, "color": 0x000000 },
     "Og" : { 'z': 118, "radius": 0.400, "color": 0x000000 },
 };
-var atoms     = [];
-var spheres   = [];
-var bonds 	  = {};
-var cylinders = {};
+
+// storage objects for easy access
+var atoms       = [];
+var spheres     = [];
+
+var bonds_index = {};
+var index_bonds = [];
+var cylinders   = [];
+
+var connectivity = {};
+
+// hierarchical atom indexing ranges dictionaries of form (title: [start, stop])
+var states = {};
+var chains = {};
+var resids = {};
 
 const loadAtoms = (atoms) => {
-	spheres = [0]; // not fast to reinit every time
+
+	spheres = []; // not fast to reinit every time?
+
 	for (const atom in atoms) {
 		let geometry      = new SphereGeometry( 0.2*atomic_models[atoms[atom]["atomType"]]["radius"], 18, 18 );
 		let material      = new MeshStandardMaterial( { color: atomic_models[atoms[atom]["atomType"]]["color"] });
@@ -56614,11 +56627,30 @@ const loadAtoms = (atoms) => {
 	}
 };
 
-const loadBonds = (obj) => {
-	const keys = Array.from({ length: atoms.length }, (_, i) => i)
-	bonds = Object.fromEntries(keys.map(key => [key, []])); // not fast to reinit every time a bond is updated
+const loadAtomInstances = (atoms) => {
+	
+	const atomGeometry = new SphereGeometry(0.05, 18, 18);
+	const atomMaterial = new MeshStandardMaterial({ color: 0x888888 });
+	spheres 		   = new InstancedMesh(atomGeometry, atomMaterial, atoms.length);
+	
+	scene.add(spheres);
+
+	const matrix = new Matrix4();
+	for (let i=0; i < atoms.length; i++) {
+		let pos = atoms[i]["coordinates"]
+		matrix.setPosition(pos.x, pos.y, pos.z);
+		spheres.setMatrixAt(i, matrix);
+	}
+
+}
+
+const loadBonds = (atoms) => {
+
+	const keys 	  = Array.from({ length: atoms.length }, (_, i) => i);
+	bonds 	   	  = Object.fromEntries(keys.map(key => [key, []])); // * not fast to reinit every time a bond is updated
 	let threshold = 0.05;
-	for (let i=0; i < atoms.length; i++) { // this needs to be numerized because this is awful memory wise
+
+	for (let i=0; i < atoms.length; i++) {
 		for (let j=i+1; j < atoms.length; j++) {
 			// checking if bond should occur
 			if (i === j) continue;
@@ -56649,9 +56681,70 @@ const loadBonds = (obj) => {
 			bonds[j].push(i);
 		}
 	}
-	console.log(Object.keys(cylinders).length) 
-	console.log(atoms.length)
 };
+
+
+const loadBondInstances = (atoms) => {
+
+	const keys 	  = Array.from({ length: atoms.length }, (_, i) => i);
+	connectivity  = Object.fromEntries(keys.map(key => [key, []])); // * not fast to reinit every time a bond is updated
+	let threshold = 0.05;
+
+	let bondCounter = 0;
+
+	// First finding the number of bonds -> hopefully this can be sped up
+	for (let i=0; i < atoms.length; i++) {
+		for (let j=i+1; j < atoms.length; j++) {
+
+			// checking if bond should occur
+			if (i === j) continue;
+			if (atoms[i]["chainId"] !== atoms[j]["chainId"] || atoms[i]["state"] !== atoms[j]["state"]) continue
+			const pointA   = atoms[i]["coordinates"];
+			const pointB   = atoms[j]["coordinates"];
+			const ideal    = ((atomic_models[atoms[i]["atomType"]]["radius"]) + (atomic_models[atoms[j]["atomType"]]["radius"]))/2; // this doesn't work on unknown atom types
+			const distance = pointA.distanceTo(pointB);
+			
+			if (Math.abs(ideal-distance) > threshold) continue;
+
+			connectivity[i].push(j);
+			connectivity[j].push(i);
+
+			bonds_index[[i, j]] = bondCounter++;
+			index_bonds.push([i, j])
+		}
+	}
+
+	const bondGeometry = new CylinderGeometry(0.01, 0.01, 1, 8);
+	const bondMaterial = new MeshStandardMaterial({ color: 0xFF9090 })
+	cylinders 		   = new InstancedMesh(bondGeometry, bondMaterial, index_bonds.length);
+
+	// Helper objects for positioning and rotating
+	const bondMatrix = new Matrix4();
+	const bondVector = new Vector3();
+
+	for (let i=0; i < index_bonds.length; i++) {
+
+		const pointA = atoms[index_bonds[i][0]]["coordinates"]
+		const pointB = atoms[index_bonds[i][1]]["coordinates"]
+
+		// calculate midpoint and orientation
+		bondVector.copy(pointB).sub(pointA);
+		const bondLength = bondVector.length();
+		const bondMidPoint = pointA.clone().addScaledVector(bondVector, 0.5);
+
+		// align bond between A and B
+		bondMatrix.identity();
+		bondMatrix.lookAt(pointA, pointB, new Vector3(0, 1, 0));
+		bondMatrix.multiply(new Matrix4().makeRotationX(Math.PI / 2));
+		bondMatrix.setPosition(bondMidPoint);
+		bondMatrix.scale(new Vector3(1, bondLength, 1));
+		cylinders.setMatrixAt(i, bondMatrix);
+	}
+
+	scene.add(cylinders);
+
+};
+
 
 const updateSpheres = (coordinates) => {
   for (const key in coordinates) {
@@ -56661,8 +56754,8 @@ const updateSpheres = (coordinates) => {
 
 const updateLines = (obj) => {
   for (const pair in obj.distances) {
-    const parsedPair = pair.split( ',' ).map( v => { return Number(v) } );
-    const points     = [obj.coordinates[parsedPair[0]], obj.coordinates[parsedPair[1]]];
+    const parsedPair     = pair.split( ',' ).map( v => { return Number(v) } );
+    const points         = [obj.coordinates[parsedPair[0]], obj.coordinates[parsedPair[1]]];
     lines[pair].geometry = new BufferGeometry().setFromPoints(points);
   }
 };
@@ -56683,7 +56776,6 @@ class PDBParser {
 					this.atoms.push(atom);
 				}
 			}
-			// if (line.startsWith('TER')) break;
 		}
 	}
 	parseAtomLine(line, state) {
@@ -56735,8 +56827,10 @@ document.getElementById('browse-pdb').onchange = function() {
 		parser.parse();
 		atoms = parser.getAtoms();
 		document.getElementById('browse-pdb').value = "";
-		loadAtoms(atoms);
-		loadBonds(atoms);
+		// loadAtoms(atoms);
+		loadAtomInstances(atoms);
+		// loadBonds(atoms);
+		loadBondInstances(atoms);
 	};
 };
 
@@ -56747,8 +56841,10 @@ document.getElementById('clear').onclick = function() {
 	if (Object.keys(cylinders).length > 0) {
 		Object.keys(cylinders).forEach(function( v, i, a ) { scene.remove(cylinders[v]) });
 	}
+	scene.remove(spheres);
+	scene.remove(cylinders);
 	spheres   = []; atoms = [];
-	cylinders = []; bonds = [];
+	cylinders = []; bonds_index = {}; index_bonds = []; connectivity = {};
 	renderer.render( scene, camera );
 };
 
@@ -56839,16 +56935,14 @@ const animate = () => {
 	const now = performance.now();
     const delta = now - lastFrameTime;
     frameCount++;
-	if (atoms.length > 0){
-		if (delta >= 500) { // Update every second
-			fps = frameCount*2;
-			updateFPS(fps);
-			frameCount = 0;
-			lastFrameTime = now;
-		}
+	if (delta >= 1000) { // Update every second
+		fps = frameCount;
+		updateFPS(fps);
+		frameCount = 0;
+		lastFrameTime = now;
 	}
-		renderer.render( scene, camera );
-		controller.Update();
+	renderer.render( scene, camera );
+	controller.Update();
 }; animate();
 
 // window.addEventListener('keydown', (e) => {
