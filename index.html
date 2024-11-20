@@ -17,7 +17,7 @@
 	}
 	#fps {
 	background-color: rgba(0,0,0,0);
-	color: black;
+	color: white;
 	padding: 16px;
 	font-size: 16px;
 	border: none;
@@ -48,7 +48,7 @@
 	}
 	#top .menu-button {
 	font-family: "Courier New";
-	background-color: #333;
+	background-color: #1E01C4;
 	color: white;
 	padding: 16px;
 	font-size: 16px;
@@ -75,7 +75,7 @@
 	display: block;
 	}
 	#top .menu-button:hover{
-	background-color: #111;
+	background-color: #00008B;
 	cursor: pointer;
 	}
 	#bottom {
@@ -93,7 +93,7 @@
 	font-family: "Courier New";
 	text-align: center;
 	text-decoration: none;
-	background-color: #333;
+	background-color: #1E01C4;
 	color: white;
 	font-size: 16px;
 	}
@@ -114,9 +114,10 @@
 	#bottom .btn{
 	height: inherit;
 	width: inherit;
+	border: none;
 	}
 	#bottom .btn:hover {
-	background-color: #111;
+	background-color: #00008B;
 	cursor: pointer;
 	}
 	.slide {
@@ -184,36 +185,16 @@
 	cursor: pointer;
 	background-color: darkred;
 	}
-	.non-metal {
-	background-color: blue;
-	} .non-metal:hover {background-color: darkblue;}
-	.halogen {
-	background-color: #ac94f4;
-	} .halogen:hover {background-color: #643b9f;}
-	.noble-gas {
-	background-color: #7600bc;
-	} .noble-gas:hover {background-color: #4b0076;}
-	.metalloid {
-	background-color: #3cdfff;
-	} .metalloid:hover {background-color: #2e88b6;}
-	.basic-metal {
-	background-color: #37fd12;
-	} .basic-metal:hover {background-color: #228b22;}
-	.alkali-metal {
-	background-color: #ff0000;
-	} .alkali-metal:hover {background-color: #8b0000;}
-	.alkaline-earth {
-	background-color: #ff4f00;
-	} .alkaline-earth:hover {background-color: #8d4005;}
-	.transition-metal {
-	background-color: #ffd700;
-	} .transition-metal:hover {background-color: #b0992b;}
-	.lanthanide {
-	background-color: #ff6fff;
-	} .lanthanide:hover {background-color: #fd5da8;}
-	.actinide {
-	background-color: #bf53ff;
-	} .actinide:hover {background-color: #9f33ff;}
+	.non-metal {background-color: blue;} .non-metal:hover {background-color: darkblue;}
+	.halogen {background-color: #ac94f4;} .halogen:hover {background-color: #643b9f;}
+	.noble-gas {background-color: #7600bc;} .noble-gas:hover {background-color: #4b0076;}
+	.metalloid {background-color: #3cdfff;} .metalloid:hover {background-color: #2e88b6;}
+	.basic-metal {background-color: #37fd12;} .basic-metal:hover {background-color: #228b22;}
+	.alkali-metal {background-color: #ff0000;} .alkali-metal:hover {background-color: #8b0000;}
+	.alkaline-earth {background-color: #ff4f00;} .alkaline-earth:hover {background-color: #8d4005;}
+	.transition-metal {background-color: #ffd700;} .transition-metal:hover {background-color: #b0992b;}
+	.lanthanide {background-color: #ff6fff;} .lanthanide:hover {background-color: #fd5da8;}
+	.actinide {background-color: #bf53ff;} .actinide:hover {background-color: #9f33ff;}
 	.hide {
 	visibility: hidden;
 	display: none;
@@ -56841,9 +56822,7 @@ document.getElementById('browse-pdb').onchange = function() {
 		parser.parse();
 		atoms = parser.getAtoms();
 		document.getElementById('browse-pdb').value = "";
-		// loadAtoms(atoms);
 		loadAtomInstances(atoms);
-		// loadBonds(atoms);
 		loadBondInstances(atoms);
 	};
 };
@@ -56866,12 +56845,12 @@ const canvas       = document.querySelector('#bg');
 const clock        = new Clock();
 const renderer     = new WebGLRenderer({ canvas: canvas });
 const scene        = new Scene();
-const gridHelper   = new GridHelper(100, 10);
-const pointLight   = new PointLight( 0xFFFFFF, 3, 100, 0.001 );
+const gridHelper   = new GridHelper(40, 40, 0xFF0000, 0xFF0000);
+const pointLight   = new PointLight( 0xFFFFFF, 5, 100, 0.001 );
 const ambientLight = new AmbientLight( 0xFFFFFF );
 const camera       = new PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 500 );
 const controller   = new CameraController(camera, renderer.domElement);
-scene.background   = new Color( 0xFFFFFF );
+scene.background   = new Color( 0x363636 );
 scene.fog          = new Fog( 0xFFFFFFF, 10, 200 ); // fog depth will eventually be scrollable? with a key input (mousewheel), have button to toggle between mouse and keypad
 
 pointLight.position.set( 0, 10, 0 );
