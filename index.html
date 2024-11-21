@@ -56580,9 +56580,9 @@ const atomic_models = {
 };
 
 // storage objects for easy access
-var atoms       = [];
+var SCRA        = [];
 var spheres     = [];
-var colorList   = [];
+// var colorList   = [];
 
 var bonds_index = {};
 var index_bonds = [];
@@ -56590,10 +56590,6 @@ var cylinders   = [];
 
 var connectivity = {};
 
-// hierarchical atom indexing ranges dictionaries of form (title: [start, stop])
-var states = {};
-var chains = {};
-var resids = {};
 
 const loadAtoms = (atoms) => {
 
@@ -56682,7 +56678,7 @@ const loadBonds = (atoms) => {
 const loadBondInstances = (atoms) => {
 
 	const keys 	  = Array.from({ length: atoms.length }, (_, i) => i);
-	connectivity  = Object.fromEntries(keys.map(key => [key, []])); // * not fast to reinit every time a bond is updated
+	connectivity  = Object.fromEntries(keys.map(key => [key, []])); // * not fast to reinit every time a bond is updated, update function needed
 	let threshold = 0.05;
 
 	let bondCounter = 0;
@@ -56759,17 +56755,39 @@ const updateLines = (obj) => {
 class PDBParser {
 	constructor(pdbData) {
 		this.pdbData = pdbData;
-		this.atoms = [];
+
+		// capping done to make labels match indexing
+		
+		// first atom at index 1
+		this.SCRA = [];
+
+		// [start, end] - all should start at atom 1
 	}
 	parse() {
-		let state = 0
+		// go hierarchical, stop with 1D its unnatural
+		let curState = none; // state updated based on atom number
+		let curChain = none;
+
+		let atomCounter = 0;
 		for (const line of this.pdbData) {
-			if (line.startsWith('MODEL')) state++;
 			if (line.startsWith('ATOM') || line.startsWith('HETATM')) {
-				const atom = this.parseAtomLine(line, state);
+				const atom = this.parseAtomLine(line, curState);
 				if (atom) {
 					this.atoms.push(atom);
+					atomCounter++;
 				}
+				// filling auxillary access dictionaries
+				// indices are in reference to the atom array
+
+				// resids
+				if (atom['residueSeqNum'] !== curResid) {
+					this.resids[curResid++][state].push(atomCounter-1);
+					if (atom['residueSeqNum'] > this.resids.length) this.resids.push([[atomCounter]])
+					this.resids[curResid].push([atomCounter]);
+				}
+				
+				// chains
+
 			}
 		}
 	}
@@ -56796,8 +56814,8 @@ class PDBParser {
 		};
   	};
 
-	getAtoms() {
-		return this.atoms;
+	getParsed() {
+		return [this.atoms];
 	};
 	printAtoms() {
 		this.atoms.forEach(atom => {
@@ -56808,6 +56826,87 @@ class PDBParser {
 	};
 };
 
+function parsePDB(lines) {
+    const pdbData = {}; // Hierarchical object: state > chain > residue > atoms
+    let currentState = null; // Current MODEL number
+    let currentChain = null; // Current chain identifier
+
+	let atomCounter = 1;
+    for (const line of lines) {
+        const recordType = line.slice(0, 6).trim();
+
+        if (recordType === "MODEL") {
+            // Start a new state
+            currentState = parseInt(line.slice(10, 14).trim(), 10);
+            if (!pdbData[currentState]) {
+                pdbData[currentState] = {};
+            }
+        } else if (recordType === "ENDMDL") {
+            // End of current state
+            currentState = null;
+        } else if (recordType === "ATOM" || recordType === "HETATM") {
+            // Parse atom data
+            const atomSerial = parseInt(line.slice(6, 11).trim(), 10);
+            const atomName = line.slice(12, 16).trim();
+            const resName = line.slice(17, 20).trim();
+            const chainID = line.slice(21, 22).trim();
+            const resSeq = parseInt(line.slice(22, 26).trim(), 10);
+            const iCode = line.slice(26, 27).trim(); // Optional insertion code
+            const x = parseFloat(line.slice(30, 38).trim());
+            const y = parseFloat(line.slice(38, 46).trim());
+            const z = parseFloat(line.slice(46, 54).trim());
+
+            // Determine the correct state and chain
+            if (currentState !== null) {
+                if (!pdbData[currentState][chainID]) {
+                    pdbData[currentState][chainID] = {};
+                }
+            } else {
+                if (!pdbData[chainID]) {
+                    pdbData[chainID] = {};
+                }
+            }
+
+            const chainData = currentState !== null ? pdbData[currentState][chainID] : pdbData[chainID];
+
+            // Determine residue key and initialize if necessary
+            const residueKey = `${resSeq}${iCode}`;
+            if (!chainData[residueKey]) {
+                chainData[residueKey] = {
+                    resName: resName,
+                    atoms: []
+                };
+            }
+
+            // Add atom to residue
+            chainData[residueKey].atoms.push({
+				number: atomCounter++,
+                serial: atomSerial,
+                name: atomName,
+                x: x,
+                y: y,
+                z: z
+            });
+        }
+    }
+
+    return pdbData;
+}
+
+// Example Usage
+// const pdbContent = `
+// MODEL        1
+// ATOM      1  N   GLY A   1      11.104  13.207  15.599  1.00  0.00           N
+// ATOM      2  CA  GLY A   1      12.004  14.107  16.499  1.00  0.00           C
+// ENDMDL
+// MODEL        2
+// ATOM      1  N   GLY A   1      10.004  12.107  14.499  1.00  0.00           N
+// ATOM      2  CA  GLY A   1      13.004  15.107  17.499  1.00  0.00           C
+// ENDMDL
+// `;
+
+// const parsedData = parsePDB(pdbContent);
+// console.log(parsedData);
 
 
 
@@ -56818,12 +56917,13 @@ document.getElementById('browse-pdb').onchange = function() {
 	reader.onload = function() {
 		const text   = this.result;
 		const lines  = text.split('\n');
-		const parser = new PDBParser(lines);
-		parser.parse();
-		atoms = parser.getAtoms();
+		// const parser = new PDBParser(lines);
+		// parser.parse();
+		// [atoms, resids, chains, states] = parser.getParsed();
+		console.log(parsePDB(lines))
 		document.getElementById('browse-pdb').value = "";
-		loadAtomInstances(atoms);
-		loadBondInstances(atoms);
+		// loadAtomInstances(atoms);
+		// loadBondInstances(atoms);
 	};
 };
 
