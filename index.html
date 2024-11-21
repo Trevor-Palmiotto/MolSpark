@@ -56580,7 +56580,7 @@ const atomic_models = {
 };
 
 // storage objects for easy access
-var SCRA        = [];
+var SCRA        = {};
 var spheres     = [];
 // var colorList   = [];
 
@@ -56605,33 +56605,80 @@ const loadAtoms = (atoms) => {
 	}
 };
 
-const loadAtomInstances = (atoms) => {
+// const loadAtomInstances = (atoms) => {
+	
+// 	const atomGeometry = new SphereGeometry(0.2, 18, 18);
+// 	const atomMaterial = new MeshStandardMaterial({ color: 0x888888 });
+// 	spheres 		   = new InstancedMesh(atomGeometry, atomMaterial, atoms.length);
+	
+// 	const matrix = new Matrix4();
+// 	const color  = new Color();
+
+// 	for (let i=0; i < atoms.length; i++) {
+		
+// 		color.set(atomic_models[atoms[i]["atomType"]]["color"]);
+
+// 		let radius = atomic_models[atoms[i]["atomType"]]["radius"];
+// 		let pos    = atoms[i]["coordinates"];
+
+// 		// reset the matrix
+// 		matrix.identity();
+
+// 		// setting the position and scale
+// 		matrix.setPosition(pos.x, pos.y, pos.z);
+// 		matrix.scale(new Vector3(radius, radius, radius));
+		
+// 		spheres.setMatrixAt(i, matrix);
+// 		spheres.setColorAt (i, color);
+// 	}
+// 	scene.add(spheres);
+
+// }
+
+const loadAtomInstances = (structure, states, size) => {
 	
 	const atomGeometry = new SphereGeometry(0.2, 18, 18);
 	const atomMaterial = new MeshStandardMaterial({ color: 0x888888 });
-	spheres 		   = new InstancedMesh(atomGeometry, atomMaterial, atoms.length);
+	spheres 		   = new InstancedMesh(atomGeometry, atomMaterial, size);
 	
 	const matrix = new Matrix4();
 	const color  = new Color();
+	
+	let i = 0;
+	for (const state of states) {
+		const chains = SCRA[state];
+		console.log(chains);
 
-	for (let i=0; i < atoms.length; i++) {
-		
-		color.set(atomic_models[atoms[i]["atomType"]]["color"]);
+		for (const chain in chains) {
+			const residues = chains[chain];
 
-		let radius = atomic_models[atoms[i]["atomType"]]["radius"];
-		let pos    = atoms[i]["coordinates"];
+			for (const residueKey in residues) {
+				const residue = residues[residueKey];
+				const atoms   = residue.atoms;
 
-		// reset the matrix
-		matrix.identity();
+				for (const atom of atoms) {
+					color.set(atomic_models[atom.type]["color"]);
+					let radius = atomic_models[atom.type]["radius"];
+					let pos    = atom.pos;
 
-		// setting the position and scale
-		matrix.setPosition(pos.x, pos.y, pos.z);
-		matrix.scale(new Vector3(radius, radius, radius));
-		
-		spheres.setMatrixAt(i, matrix);
-		spheres.setColorAt (i, color);
+					// // reset the matrix
+					matrix.identity();
+
+					// // setting the position and scale
+					matrix.setPosition(pos.x, pos.y, pos.z);
+					matrix.scale(new Vector3(radius, radius, radius));
+					
+					spheres.setMatrixAt(i, matrix);
+					spheres.setColorAt (i, color);
+
+					i++;
+				}
+			}
+		}
+
 	}
 	scene.add(spheres);
+	console.log(spheres);
 
 }
 
@@ -56855,6 +56902,7 @@ function parsePDB(lines) {
             const x = parseFloat(line.slice(30, 38).trim());
             const y = parseFloat(line.slice(38, 46).trim());
             const z = parseFloat(line.slice(46, 54).trim());
+			const atomType = line.substring(76, 78).trim(); // Atom type
 
             // Determine the correct state and chain
             if (currentState !== null) {
@@ -56883,31 +56931,14 @@ function parsePDB(lines) {
 				number: atomCounter++,
                 serial: atomSerial,
                 name: atomName,
-                x: x,
-                y: y,
-                z: z
+				type: atomType,
+				pos: new Vector3(x, y, z)
             });
         }
     }
 
     return pdbData;
 }
-
-// Example Usage
-// const pdbContent = `
-// MODEL        1
-// ATOM      1  N   GLY A   1      11.104  13.207  15.599  1.00  0.00           N
-// ATOM      2  CA  GLY A   1      12.004  14.107  16.499  1.00  0.00           C
-// ENDMDL
-// MODEL        2
-// ATOM      1  N   GLY A   1      10.004  12.107  14.499  1.00  0.00           N
-// ATOM      2  CA  GLY A   1      13.004  15.107  17.499  1.00  0.00           C
-// ENDMDL
-// `;
-
-// const parsedData = parsePDB(pdbContent);
-// console.log(parsedData);
-
 
 
 document.getElementById('browse-pdb').onchange = function() {
@@ -56920,9 +56951,10 @@ document.getElementById('browse-pdb').onchange = function() {
 		// const parser = new PDBParser(lines);
 		// parser.parse();
 		// [atoms, resids, chains, states] = parser.getParsed();
-		console.log(parsePDB(lines))
+		SCRA = parsePDB(lines);
+		console.log(SCRA);
 		document.getElementById('browse-pdb').value = "";
-		// loadAtomInstances(atoms);
+		loadAtomInstances(SCRA, [1]);
 		// loadBondInstances(atoms);
 	};
 };
