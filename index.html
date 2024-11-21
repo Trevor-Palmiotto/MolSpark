@@ -56635,19 +56635,21 @@ const loadAtoms = (atoms) => {
 
 // }
 
-const loadAtomInstances = (structure, states, size) => {
+const loadAtomInstances = (structure, states) => {
 	
+	let count = 0;
+	for (const state of states) count += structure[state].atomCount;
+
 	const atomGeometry = new SphereGeometry(0.2, 18, 18);
 	const atomMaterial = new MeshStandardMaterial({ color: 0x888888 });
-	spheres 		   = new InstancedMesh(atomGeometry, atomMaterial, size);
+	spheres 		   = new InstancedMesh(atomGeometry, atomMaterial, count);
 	
 	const matrix = new Matrix4();
 	const color  = new Color();
 	
 	let i = 0;
 	for (const state of states) {
-		const chains = SCRA[state];
-		console.log(chains);
+		const chains = structure[state];
 
 		for (const chain in chains) {
 			const residues = chains[chain];
@@ -56655,8 +56657,8 @@ const loadAtomInstances = (structure, states, size) => {
 			for (const residueKey in residues) {
 				const residue = residues[residueKey];
 				const atoms   = residue.atoms;
-
-				for (const atom of atoms) {
+				for (const atomKey in atoms) {
+					const atom = atoms[atomKey];
 					color.set(atomic_models[atom.type]["color"]);
 					let radius = atomic_models[atom.type]["radius"];
 					let pos    = atom.pos;
@@ -56678,8 +56680,6 @@ const loadAtomInstances = (structure, states, size) => {
 
 	}
 	scene.add(spheres);
-	console.log(spheres);
-
 }
 
 const loadBonds = (atoms) => {
@@ -56874,7 +56874,8 @@ class PDBParser {
 };
 
 function parsePDB(lines) {
-    const pdbData = {}; // Hierarchical object: state > chain > residue > atoms
+
+    const pdbData 	 = {0:{}}; // Hierarchical object: state > chain > residue > atoms
     let currentState = null; // Current MODEL number
     let currentChain = null; // Current chain identifier
 
@@ -56886,7 +56887,7 @@ function parsePDB(lines) {
             // Start a new state
             currentState = parseInt(line.slice(10, 14).trim(), 10);
             if (!pdbData[currentState]) {
-                pdbData[currentState] = {};
+                pdbData[currentState] = {atomCount: 0};
             }
         } else if (recordType === "ENDMDL") {
             // End of current state
@@ -56904,23 +56905,26 @@ function parsePDB(lines) {
             const z = parseFloat(line.slice(46, 54).trim());
 			const atomType = line.substring(76, 78).trim(); // Atom type
 
+			const stateIndex = ((currentState !== null) ? currentState: 0);
             // Determine the correct state and chain
-            if (currentState !== null) {
-                if (!pdbData[currentState][chainID]) {
-                    pdbData[currentState][chainID] = {};
-                }
-            } else {
-                if (!pdbData[chainID]) {
-                    pdbData[chainID] = {};
-                }
-            }
+            // if (currentState !== null) {
+            //     if (!pdbData[currentState][chainID]) {
+            //         pdbData[currentState][chainID] = {atomCount: 0};
+            //     }
+            // } else {
+            //     if (!pdbData[0][chainID]) {
+            //         pdbData[0][chainID] = {atomCount: 0};
+            //     }
+            // }
+			if (!pdbData[stateIndex][chainID]) pdbData[stateIndex][chainID] = {atomCount: 0};
 
-            const chainData = currentState !== null ? pdbData[currentState][chainID] : pdbData[chainID];
+            const chainData = pdbData[stateIndex][chainID];
 
             // Determine residue key and initialize if necessary
             const residueKey = `${resSeq}${iCode}`;
             if (!chainData[residueKey]) {
                 chainData[residueKey] = {
+					atomCount: 0,
                     resName: resName,
                     atoms: []
                 };
@@ -56932,8 +56936,16 @@ function parsePDB(lines) {
                 serial: atomSerial,
                 name: atomName,
 				type: atomType,
-				pos: new Vector3(x, y, z)
+				pos: new Vector3(x, y, z).divideScalar(10) // to nanometers
             });
+
+			// update counts
+			if (currentState !== null) {
+				pdbData[currentState].atomCount++;
+			} else {
+				pdbData[0].atomCount++;
+			}
+
         }
     }
 
@@ -56952,7 +56964,6 @@ document.getElementById('browse-pdb').onchange = function() {
 		// parser.parse();
 		// [atoms, resids, chains, states] = parser.getParsed();
 		SCRA = parsePDB(lines);
-		console.log(SCRA);
 		document.getElementById('browse-pdb').value = "";
 		loadAtomInstances(SCRA, [1]);
 		// loadBondInstances(atoms);
