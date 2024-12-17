@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="MolsparkV2.png" />
 	<style>
-	@import url("https://use.typekit.net/jmk3xov.css");
+	/* @import url("https://use.typekit.net/jmk3xov.css"); */
 	body {
 	background-color: white;
 	height: 98vh;
@@ -42,42 +42,78 @@
 	.flexbox#middle {
 	justify-content: center;
 	}
-	.menu {
-	position: relative;
-	display: inline-block;
+	.clickable:hover {
+		cursor: pointer;
 	}
-	#top .menu-button {
-	font-family: "Courier New";
-	background-color: #1E01C4;
-	color: white;
-	padding: 16px;
-	font-size: 16px;
-	border: none;
+	.menu-item-color {
+		background-color: #1E01C4;
 	}
-	#top .menu-content{
-	display: none;
-	position: absolute;
-	background-color: #ccc;
-	box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+	.menu-item {
+		position: relative;
+		display: inline-block;
 	}
-	#top .menu-content li{
-	color: black;
-	padding: 12px 16px;
-	text-decoration: none;
-	display: block;
-	min-width: 100px;
+	#top .menu-item:hover .dropdown {
+		display: block;
 	}
-	#top .menu-content li:hover {
-	background-color: #aaa;
-	cursor: pointer;
+	#top .menu-item-label {
+		font-family: "Courier New";
+		color: white;
+		padding: 16px;
+		font-size: 16px;
+		border: none;
 	}
-	#top .menu:hover .menu-content {
-	display: block;
+	#top .menu-item-label:hover {
+		background-color: #00008B;
 	}
-	#top .menu-button:hover{
-	background-color: #00008B;
-	cursor: pointer;
+	#top .dropdown {
+		display: none;
+		position: absolute;
 	}
+	.dropdown-item {
+		position: relative;
+		display: block;
+	}
+	.dropdown-item-label {
+		font-family: "Courier New";
+		background-color: #808080;
+		padding: 16px;
+		font-size: 16px;
+		border: none;
+		text-align: left;
+		width: 100%;
+	}
+	#top .dropdown-item-label:hover{
+		background-color: #5C5C5C;
+	}
+	#top .dropdown-item:hover .popright{
+		display: inline-block;
+	}
+	#top .popright {
+		display: none;
+		position: absolute;
+	}
+	.popright-item {
+		position: relative;
+		display: block;
+	}
+	.popright-item-label {
+		font-family: "Courier New";
+		background-color: #ccc;
+		padding: 16px;
+		font-size: 16px;
+		border: none;
+		text-align: left;
+		width: 100%;
+	}
+	.popright-item-label:hover {
+		background-color: #aaa;
+	}
+	/* .sub-menu-content li {
+		background: #aaa;
+		width: 10%;
+	} */
+
+
 	#bottom {
 	display: flex;
 	position: absolute;
@@ -292,44 +328,101 @@
   <body>
     <canvas id="bg"></canvas>
     <div id="top">
-        <span id="menus">
-            <div class="menu">
-                <button class="menu-button">Add</button>
-                <div class="menu-content">
-                    <li onclick="document.getElementById('browse-pdb').click(); document.querySelectorAll('#start, #myRange, #end').forEach(function(v, i, a) {v.classList.remove('slide_on')})">System</li>
-                    <input type="file" id="browse-pdb" onchange="FileSelected()" style="display: none;" accept=".pdb">
-                    <li onclick="document.querySelectorAll('#atom-window').forEach(function(v, i, a) {v.classList.add('show'); v.classList.remove('hide')})">Atoms</li>
-                    <!-- <input type="file" id="browser-trj" onchange="FileSelected()" style="display: none;" accept=".trj"> -->
-                    <!-- <input type="file" id="browser-trj" onchange="FileSelected()" style="display: none;" accept=".trj"> -->
+        <span id="menu">
+			<!-- ADD -->
+            <div class="menu-item">
+                <button class="menu-item-label menu-item-color">Add</button>
+                <div class="dropdown">
+
+					<div class="dropdown-item">
+						<button class="dropdown-item-label clickable" onclick="document.getElementById('browse-pdb').click();">System</button>
+						<input type="file" id="browse-pdb" onchange="FileSelected()" style="display: none;" accept=".pdb" value="">
+					</div>
+
+					<div class="dropdown-item">
+						<button class="dropdown-item-label clickable" onclick="document.querySelectorAll('#atom-window').forEach(function(v, i, a) {v.classList.add('show'); v.classList.remove('hide')})">Atoms</button>
+					</div>
                 </div>
             </div>
-            <div class="menu">
-                <button class="menu-button">Define</button>
-                <div class="menu-content">
-                    <li>Colors</li>
-                    <li>Viewport</li>
+
+			<!-- VIEWPORT -->
+            <div class="menu-item">
+                <button class="menu-item-label menu-item-color">Viewport</button>
+                <div class="dropdown">
+					
+					<div class="dropdown-item">
+                		<button class="dropdown-item-label dropdown-color">Pallet</button>
+						<div class="popright">
+
+							<div class="popright-item">
+								<button class="popright-item-label clickable">Menu</button>
+							</div>
+							<div class="popright-item">
+								<button class="popright-item-label clickable">Backdrop</button>
+							</div>
+							<div class="popright-item">
+								<button class="popright-item-label clickable">Grid</button>
+							</div>
+
+						</div>
+					</div>
+
+					<div class="dropdown-item">
+                		<button class="dropdown-item-label dropdown-color">Test i</button>
+						<div class="popright">
+
+							<div class="popright-item">
+								<button class="popright-item-label clickable">Test</button>
+							</div>
+						</div>
+					</div>
                 </div>
             </div>
-            <div class="menu">
-                <button class="menu-button">Modes</button>
-                <div class="menu-content">
-                    <li>View</li>
-                    <li>4D</li>
+
+			<!-- MODES -->
+			<div class="menu-item">
+                <button class="menu-item-label menu-item-color">Modes</button>
+                <div class="dropdown">
+
+					<div class="dropdown-item">
+						<button class="dropdown-item-label clickable">Viewing</button>
+					</div>
+					<div class="dropdown-item">
+						<button class="dropdown-item-label clickable">Editing</button>
+					</div>
+					<div class="dropdown-item">
+						<button class="dropdown-item-label clickable">4D</button>
+					</div>
                 </div>
             </div>
-            <div class="menu">
-                <button class="menu-button">Export</button>
-                <div class="menu-content">
-                    <li>Photo</li>
-                    <li>Positions</li>
-                    <li>Session</li>
+
+			<!-- SAVE -->
+            <div class="menu-item">
+                <button class="menu-item-label menu-item-color">Save</button>
+                <div class="dropdown">
+
+					<div class="dropdown-item">
+						<button class="dropdown-item-label clickable">Screenshot</button>
+					</div>
+					<div class="dropdown-item">
+						<button class="dropdown-item-label clickable">System</button>
+					</div>
+					<div class="dropdown-item">
+						<button class="dropdown-item-label clickable">Session</button>
+					</div>
+
                 </div>
             </div>
-            <div class="menu">
-                <button class="menu-button">Theme</button>
-                <div class="menu-content">
-                    <li>Dark</li>
-                    <li>Light</li>
+
+			<div class="menu-item">
+                <button class="menu-item-label menu-item-color">Representations</button>
+                <div class="dropdown">
+					<div class="dropdown-item">
+						<button class="dropdown-item-label">Color</button>
+					</div>
+					<div class="dropdown-item">
+						<button class="dropdown-item-label">Geometry</button>
+					</div>
                 </div>
             </div>
         </span>
@@ -534,7 +627,6 @@
             <button id="No" class="atom-cell actinide">No</button>
             <button id="Lr" class="atom-cell actinide">Lr</button>
         </div>
-        <div style="margin: 5px;">WINDOW FOR ADDING ATOMS</div>
     </div>
     <span id="bottom">
         <span class="left">
@@ -56580,7 +56672,7 @@ const atomic_models = {
 };
 
 // storage objects for easy access
-var SCRA        = {};
+var SCRA        = {}; // states -> chains -> residues -> atoms
 var spheres     = [];
 // var colorList   = [];
 
@@ -56635,6 +56727,7 @@ const loadAtoms = (atoms) => {
 
 // }
 
+// Uses SCRA
 const loadAtomInstances = (structure, states) => {
 	
 	let count = 0;
@@ -56721,7 +56814,7 @@ const loadBonds = (atoms) => {
 	}
 };
 
-
+// need to update to use SCRA
 const loadBondInstances = (atoms) => {
 
 	const keys 	  = Array.from({ length: atoms.length }, (_, i) => i);
@@ -56798,192 +56891,11 @@ const updateLines = (obj) => {
   }
 };
 
-// PDBParser.js
-class PDBParser {
-	constructor(pdbData) {
-		this.pdbData = pdbData;
-
-		// capping done to make labels match indexing
-		
-		// first atom at index 1
-		this.SCRA = [];
-
-		// [start, end] - all should start at atom 1
-	}
-	parse() {
-		// go hierarchical, stop with 1D its unnatural
-		let curState = none; // state updated based on atom number
-		let curChain = none;
-
-		let atomCounter = 0;
-		for (const line of this.pdbData) {
-			if (line.startsWith('ATOM') || line.startsWith('HETATM')) {
-				const atom = this.parseAtomLine(line, curState);
-				if (atom) {
-					this.atoms.push(atom);
-					atomCounter++;
-				}
-				// filling auxillary access dictionaries
-				// indices are in reference to the atom array
-
-				// resids
-				if (atom['residueSeqNum'] !== curResid) {
-					this.resids[curResid++][state].push(atomCounter-1);
-					if (atom['residueSeqNum'] > this.resids.length) this.resids.push([[atomCounter]])
-					this.resids[curResid].push([atomCounter]);
-				}
-				
-				// chains
-
-			}
-		}
-	}
-	parseAtomLine(line, state) {
-		// PDB format specific indices
-		const atomNumber 	= parseInt(line.substring(6, 11).trim(), 10); // Atom number
-		const atomName 		= line.substring(12, 16).trim();
-		const residueName 	= line.substring(17, 20).trim();
-		const chainId 		= line.charAt(21);
-		const residueSeqNum = line.substring(22, 26).trim();
-		const atomType 		= line.substring(76, 78).trim(); // Atom type
-		const x = parseFloat(line.substring(30, 38).trim());
-		const y = parseFloat(line.substring(38, 46).trim());
-		const z = parseFloat(line.substring(46, 54).trim());
-		return {
-			state,
-			atomNumber,
-			atomName,
-			residueName,
-			chainId,
-			residueSeqNum,
-			atomType,
-			coordinates: new Vector3(x, y, z).divideScalar(10) // angstroms to nanometers
-		};
-  	};
-
-	getParsed() {
-		return [this.atoms];
-	};
-	printAtoms() {
-		this.atoms.forEach(atom => {
-			const { atomNumber, atomName, residueName, chainId, residueSeqNum, coordinates } = atom;
-			console.log(`Atom Number: ${atomNumber}, Atom: ${atomName}, Residue: ${residueName}, Chain: ${chainId}, Residue Seq: ${residueSeqNum}`);
-			console.log(`Coordinates: X=${coordinates.x}, Y=${coordinates.y}, Z=${coordinates.z}`);
-		});
-	};
-};
-
-function parsePDB(lines) {
-
-    const pdbData 	 = {0:{}}; // Hierarchical object: state > chain > residue > atoms
-    let currentState = null; // Current MODEL number
-    let currentChain = null; // Current chain identifier
-
-	let atomCounter = 1;
-    for (const line of lines) {
-        const recordType = line.slice(0, 6).trim();
-
-        if (recordType === "MODEL") {
-            // Start a new state
-            currentState = parseInt(line.slice(10, 14).trim(), 10);
-            if (!pdbData[currentState]) {
-                pdbData[currentState] = {atomCount: 0};
-            }
-        } else if (recordType === "ENDMDL") {
-            // End of current state
-            currentState = null;
-        } else if (recordType === "ATOM" || recordType === "HETATM") {
-            // Parse atom data
-            const atomSerial = parseInt(line.slice(6, 11).trim(), 10);
-            const atomName = line.slice(12, 16).trim();
-            const resName = line.slice(17, 20).trim();
-            const chainID = line.slice(21, 22).trim();
-            const resSeq = parseInt(line.slice(22, 26).trim(), 10);
-            const iCode = line.slice(26, 27).trim(); // Optional insertion code
-            const x = parseFloat(line.slice(30, 38).trim());
-            const y = parseFloat(line.slice(38, 46).trim());
-            const z = parseFloat(line.slice(46, 54).trim());
-			const atomType = line.substring(76, 78).trim(); // Atom type
-
-			const stateIndex = ((currentState !== null) ? currentState: 0);
-            // Determine the correct state and chain
-            // if (currentState !== null) {
-            //     if (!pdbData[currentState][chainID]) {
-            //         pdbData[currentState][chainID] = {atomCount: 0};
-            //     }
-            // } else {
-            //     if (!pdbData[0][chainID]) {
-            //         pdbData[0][chainID] = {atomCount: 0};
-            //     }
-            // }
-			if (!pdbData[stateIndex][chainID]) pdbData[stateIndex][chainID] = {atomCount: 0};
-
-            const chainData = pdbData[stateIndex][chainID];
-
-            // Determine residue key and initialize if necessary
-            const residueKey = `${resSeq}${iCode}`;
-            if (!chainData[residueKey]) {
-                chainData[residueKey] = {
-					atomCount: 0,
-                    resName: resName,
-                    atoms: []
-                };
-            }
-
-            // Add atom to residue
-            chainData[residueKey].atoms.push({
-				number: atomCounter++,
-                serial: atomSerial,
-                name: atomName,
-				type: atomType,
-				pos: new Vector3(x, y, z).divideScalar(10) // to nanometers
-            });
-
-			// update counts
-			if (currentState !== null) {
-				pdbData[currentState].atomCount++;
-			} else {
-				pdbData[0].atomCount++;
-			}
-
-        }
-    }
-
-    return pdbData;
-}
+// General PDB file parser, returns hierarchy: state -> chain -> residue -> atoms
 
 
-document.getElementById('browse-pdb').onchange = function() {
-	const CoM 	  = new Vector3(0, 0, 0);
-	const file    = this.files[this.files.length-1];
-	const reader  = new FileReader(); reader.readAsText(file);
-	reader.onload = function() {
-		const text   = this.result;
-		const lines  = text.split('\n');
-		// const parser = new PDBParser(lines);
-		// parser.parse();
-		// [atoms, resids, chains, states] = parser.getParsed();
-		SCRA = parsePDB(lines);
-		document.getElementById('browse-pdb').value = "";
-		loadAtomInstances(SCRA, [1]);
-		// loadBondInstances(atoms);
-	};
-};
 
-document.getElementById('clear').onclick = function() {
-	if (spheres.length > 0) {
-		spheres.forEach(function( v, i, a ) { scene.remove(v) });
-	}
-	if (Object.keys(cylinders).length > 0) {
-		Object.keys(cylinders).forEach(function( v, i, a ) { scene.remove(cylinders[v]) });
-	}
-	scene.remove(spheres);
-	scene.remove(cylinders);
-	spheres   = []; atoms = [];
-	cylinders = []; bonds_index = {}; index_bonds = []; connectivity = {};
-	renderer.render( scene, camera );
-};
-
+// ------------------------ THREE.JS SETUP ------------------------
 const canvas       = document.querySelector('#bg');
 const clock        = new Clock();
 const renderer     = new WebGLRenderer({ canvas: canvas });
@@ -57001,10 +56913,10 @@ scene.add(pointLight, ambientLight, gridHelper);
 renderer.setPixelRatio( window.devicePixelRatio );
 renderer.setSize( window.innerWidth, window.innerHeight );
 camera.position.set( 1, 1, 1 );
+// ----------------------------------------------------------------
 
 
-
-// is there some way to export or make this smaller?
+// -------------------- MOUSE-ATOM INTERACTION --------------------
 var mouse, scroll_ctr, y_start;
 var dragObject     = null;
 var scroll_rate    = 0.25;
@@ -57050,20 +56962,21 @@ const plane_normal = new Vector3( 0, 1, 0 ); // plane's normal
 // document.addEventListener("pointerup", () => {
 // 	dragObject = null; controller.Enable()
 // });
+// ----------------------------------------------------------------
 
 
-const updateObject = (object, spheres) => {
-  for ( const key in object.coordinates ) {
-    object.coordinates[Number(key)] = spheres[Number(key)].position;
-  }
-}
+// const updateObject = (object, spheres) => {
+//   for ( const key in object.coordinates ) {
+//     object.coordinates[Number(key)] = spheres[Number(key)].position;
+//   }
+// }
 
 const updateFPS = (fps) => { document.getElementById('fps').innerText = "FPS: ".concat(String(fps)) };
+
 var ctr = 0; 
 let lastFrameTime = performance.now();
 let frameCount = 0;
 let fps = 0;
-
 const animate = () => {
 	requestAnimationFrame( animate );
 	const now = performance.now();
@@ -57094,6 +57007,149 @@ const animate = () => {
 //   }
 
 // });
+
+// 
+
+// ---------------- [ADD -> SYSTEM] IMPLEMENTATION ----------------
+function parsePDB(lines) {
+
+	const hierarchy  = {0:{}}; // Hierarchical object: state -> chain -> residue -> atoms (hierarchy[0] is the case for single state)
+	let currentState = null;   // Current MODEL number
+	let currentChain = null;   // Current chain identifier
+
+	let atomCounter = 1;
+	for (const line of lines) {
+		const recordType = line.slice(0, 6).trim();
+
+		if (recordType === "MODEL") {
+			// Start a new state
+			currentState = parseInt(line.slice(10, 14).trim(), 10);
+			if (!hierarchy[currentState]) {
+				hierarchy[currentState] = {atomCount: 0};
+			}
+		} else if (recordType === "ENDMDL") {
+			// End of current state
+			currentState = null;
+		} else if (recordType === "ATOM" || recordType === "HETATM") {
+			// Parse atom data
+			const atomSerial = parseInt(line.slice(6, 11).trim(), 10);
+			const atomName   = line.slice(12, 16).trim();
+			const resName    = line.slice(17, 20).trim();
+			const chainID    = line.slice(21, 22).trim();
+			const resSeq     = parseInt(line.slice(22, 26).trim(), 10);
+			const iCode      = line.slice(26, 27).trim(); // Optional insertion code
+			const x          = parseFloat(line.slice(30, 38).trim());
+			const y          = parseFloat(line.slice(38, 46).trim());
+			const z          = parseFloat(line.slice(46, 54).trim());
+			const atomType   = line.substring(76, 78).trim(); // Atom type -- needs to handle non-canonical atom naming here?
+
+			const stateIndex = ((currentState !== null) ? currentState: 0);
+
+			if (!hierarchy[stateIndex][chainID]) {hierarchy[stateIndex][chainID] = {atomCount: 0};}
+
+			const chainData = hierarchy[stateIndex][chainID];
+
+			// Set residue key (initialize as necessary)
+			const residueKey = `${resSeq}${iCode}`;
+			if (!chainData[residueKey]) {
+				chainData[residueKey] = {
+					atomCount: 0,
+					resName: resName,
+					atoms: []
+				};
+			}
+
+			// Add atom to residue
+			chainData[residueKey].atoms.push({
+				number: atomCounter++,
+				serial: atomSerial,
+				name: atomName,
+				type: atomType,
+				pos: new Vector3(x, y, z).divideScalar(10) // angstroms to nanometers
+			});
+
+			// update atom counts
+			hierarchy[stateIndex].atomCount++;
+		}
+	}
+	return hierarchy;
+}
+document.getElementById('browse-pdb').onchange = function() {
+	const CoM 	  = new Vector3(0, 0, 0);
+	const file    = this.files[this.files.length-1];
+	const reader  = new FileReader(); reader.readAsText(file);
+	reader.onload = function() {
+		const text   = this.result;
+		const lines  = text.split('\n');
+		SCRA = parsePDB(lines);
+		document.getElementById('browse-pdb').value = "";
+		loadAtomInstances(SCRA, [1]); // [1] signifies to show first state, array allows multi-state overlays (which would require N-state instancedMeshes)
+		// loadBondInstances(atoms);
+	};
+};
+// ----------------------------------------------------------------
+
+
+// this can be drastically improved wtf is this chatgpt bs
+function dragElement(elmnt) {
+
+	var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+	if (document.getElementById(elmnt.id + "-header")) {
+		// if present, the header is where you move the DIV from:
+		document.getElementById(elmnt.id + "-header").onmousedown = dragMouseDown;
+	} else {
+		// otherwise, move the DIV from anywhere inside the DIV:
+		elmnt.onmousedown = dragMouseDown;
+	}
+
+	function dragMouseDown(e) {
+		e = e
+		e.preventDefault();
+		// get the mouse cursor position at startup:
+		pos3 = e.clientX;
+		pos4 = e.clientY;
+		document.onmouseup = closeDragElement;
+		// call a function whenever the cursor moves:
+		document.onmousemove = elementDrag;
+	}
+	function elementDrag(e) {
+		e = e || window.event;
+		e.preventDefault();
+		// calculate the new cursor position:
+		pos1 = pos3 - e.clientX;
+		pos2 = pos4 - e.clientY;
+		pos3 = e.clientX;
+		pos4 = e.clientY;
+		// set the element's new position:
+		elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
+		elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+  	}
+	function closeDragElement() {
+		// stop moving when mouse button is released:
+		document.onmouseup = null;
+		document.onmousemove = null;
+	}
+}; 
+dragElement(document.getElementById("atom-window"));
+// dragElement(document.getElementById("color-wheel"));
+
+
+// -------------------- [CLEAR] IMPLEMENTATION --------------------
+document.getElementById('clear').onclick = function() {
+	if (spheres.length > 0) {
+		spheres.forEach(function( v, i, a ) { scene.remove(v) });
+	}
+	if (Object.keys(cylinders).length > 0) {
+		Object.keys(cylinders).forEach(function( v, i, a ) { scene.remove(cylinders[v]) });
+	}
+	scene.remove(spheres);
+	scene.remove(cylinders);
+	spheres   = []; atoms = [];
+	cylinders = []; bonds_index = {}; index_bonds = []; connectivity = {};
+	renderer.render( scene, camera );
+};
+// ----------------------------------------------------------------
+
         </script>
-  </body>
+    </body>
 </html>
