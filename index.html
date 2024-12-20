@@ -17,11 +17,13 @@
 	}
 	#fps {
 	background-color: rgba(0,0,0,0);
-	color: white;
 	padding: 16px;
 	font-size: 16px;
 	border: none;
 	float: right;
+	}
+	.text-color {
+		color: white;
 	}
 	.flexbox-container {
 	height: inherit;
@@ -57,7 +59,6 @@
 	}
 	#top .menu-item-label {
 		font-family: "Courier New";
-		color: white;
 		padding: 16px;
 		font-size: 16px;
 		border: none;
@@ -125,14 +126,7 @@
 	text-align: center;
 	text-decoration: none;
 	background-color: #1E01C4;
-	color: white;
 	font-size: 16px;
-	}
-	#bottom #start {
-	color: white;
-	}
-	#bottom #end {
-	color: white;
 	}
 	.left {
 	float: left;
@@ -167,7 +161,6 @@
 	height: 50%;
 	min-width: 600px;
 	min-height: 300px;
-	color: white;
 	background-color: #333;
 	}
 	.show {
@@ -384,7 +377,7 @@
         <span id="menu">
 			<!-- ADD -->
             <div class="menu-item">
-                <button class="menu-item-label menu-item-color">Add</button>
+                <button class="menu-item-label menu-item-color text-color">Add</button>
                 <div class="dropdown">
 
 					<div class="dropdown-item">
@@ -400,7 +393,7 @@
 
 			<!-- VIEWPORT -->
             <div class="menu-item">
-                <button class="menu-item-label menu-item-color">Viewport</button>
+                <button class="menu-item-label menu-item-color text-color">Viewport</button>
                 <div class="dropdown">
 					
 					<div class="dropdown-item">
@@ -408,17 +401,18 @@
 						<div class="popright">
 
 							<div class="popright-item">
-								<button class="popright-item-label clickable" onclick="document.querySelectorAll('#color-menu').forEach(function(v, i, a) {v.classList.add('show'); v.classList.remove('hide')});">Menu</button>
+								<button class="popright-item-label clickable" onclick="document.querySelectorAll('#color-menu').forEach(function(v, i, a) {v.classList.add('show'); v.classList.remove('hide')}); document.getElementById('color-label').value = '.menu-item-color';">Menu</button>
 							</div>
 							<div class="popright-item">
-								<button class="popright-item-label clickable" onclick="document.querySelectorAll('#color-menu').forEach(function(v, i, a) {v.classList.add('show'); v.classList.remove('hide')});">Backdrop</button>
+								<button class="popright-item-label clickable" onclick="document.querySelectorAll('#color-menu').forEach(function(v, i, a) {v.classList.add('show'); v.classList.remove('hide')}); document.getElementById('color-label').value = '.text-color';">Text</button>
 							</div>
 							<div class="popright-item">
-								<button class="popright-item-label clickable" onclick="document.querySelectorAll('#color-menu').forEach(function(v, i, a) {v.classList.add('show'); v.classList.remove('hide')});">Grid</button>
+								<button class="popright-item-label clickable" onclick="document.querySelectorAll('#color-menu').forEach(function(v, i, a) {v.classList.add('show'); v.classList.remove('hide')}); document.getElementById('color-label').value = 'Backdrop';">Backdrop</button>
 							</div>
 							<div class="popright-item">
-								<button class="popright-item-label clickable" onclick="document.querySelectorAll('#color-menu').forEach(function(v, i, a) {v.classList.add('show'); v.classList.remove('hide')});">Text</button>
+								<button class="popright-item-label clickable" onclick="document.querySelectorAll('#color-menu').forEach(function(v, i, a) {v.classList.add('show'); v.classList.remove('hide')}); document.getElementById('color-label').value = 'Grid';">Grid</button>
 							</div>
+
 
 						</div>
 					</div>
@@ -437,7 +431,7 @@
 
 			<!-- MODES -->
 			<div class="menu-item">
-                <button class="menu-item-label menu-item-color">Modes</button>
+                <button class="menu-item-label menu-item-color text-color">Modes</button>
                 <div class="dropdown">
 
 					<div class="dropdown-item">
@@ -454,7 +448,7 @@
 
 			<!-- SAVE -->
             <div class="menu-item">
-                <button class="menu-item-label menu-item-color">Save</button>
+                <button class="menu-item-label menu-item-color text-color">Save</button>
                 <div class="dropdown">
 
 					<div class="dropdown-item">
@@ -472,7 +466,7 @@
 
 			<!-- REPRESENTATIONS -->
 			<div class="menu-item">
-                <button class="menu-item-label menu-item-color">Representations</button>
+                <button class="menu-item-label menu-item-color text-color">Representations</button>
                 <div class="dropdown">
 					<div class="dropdown-item">
 						<button class="dropdown-item-label">Color</button>
@@ -484,7 +478,7 @@
             </div>
         </span>
         <span style="position: relative;">
-            <div id="fps">FPS: 60</div>
+            <div id="fps" class="text-color">FPS: 60</div>
         </span>
     </div>
 
@@ -492,10 +486,11 @@
 	<div id="color-menu" class="window hide">
         <div id="color-menu-header">
             <span id="color-menu-title">COLOR MENU</span>
-            <button id="color-menu-close"  onclick="document.querySelectorAll('#color-menu').forEach(function(v, i, a) {v.classList.remove('show'); v.classList.add('hide')})"> <b>X</b></button>
+            <button id="color-menu-close"  onclick="document.querySelectorAll('#color-menu').forEach(function(v, i, a) {v.classList.remove('show'); v.classList.add('hide')}); document.getElementById('color-display').style.backgroundColor = 'black';"> <b>X</b></button>
         </div>
 		<div id="color-menu-contents">
 			<div id="color-display"></div>
+			<input type="text" class="hide" id="color-label" value="">
 			<div id="color-wheel-container">
 				<img id="color-wheel-image" class="clickable" src="hsv_wheel.png" alt="">
 			</div>
@@ -705,12 +700,13 @@
     </div>
     <span id="bottom">
         <span class="left">
-            <button class="btn" id="clear">Clear</button>
+            <button class="btn menu-item-color text-color" id="clear">Clear</button>
         </span>
         <span class="right">
-            <button class="btn">Start/Stop</button>
+            <button class="btn menu-item-color text-color">Start/Stop</button>
         </span>
     </span>
+
 	        <!-- DEPENDENCIES -->
         <!-- three.js -->
         <script type="module" id="main">
@@ -57207,6 +57203,54 @@ function dragElement(elmnt) {
 }; 
 dragElement(document.getElementById("atom-window"));
 dragElement(document.getElementById("color-menu"));
+
+
+// ----------------- [COLOR MENU] IMPLEMENTATION ------------------
+
+function setColor(label) {
+	if (label === '.menu-item-color') {
+		document.querySelectorAll(label).forEach(function(v,i,a) {v.style.backgroundColor = rgb;});
+	}
+	if (label === '.text-color') {
+		document.querySelectorAll(label).forEach(function(v,i,a) {v.style.color = rgb;});
+	}
+	if (label === 'Backdrop') {
+		scene.background = new Color(rgb);
+	}
+	if (label === 'Grid') {
+		gridHelper.material.color.set(new Color(rgb));
+		gridHelper.material.needsUpdate = true;
+	}
+}
+var hsv_hue;
+var hsv_saturation;
+var hsv_value = 0.5;
+var rgb;
+
+document.getElementById('color-wheel-image').onclick = function(e) {
+
+	let mouseX = e.layerX - document.getElementById('color-wheel-image').offsetWidth/2;
+	let mouseY = e.layerY - document.getElementById('color-wheel-image').offsetHeight/2;
+
+	let hsv_theta  = Math.atan2(mouseY, mouseX);
+	hsv_hue        = (hsv_theta * 180/Math.PI + 360) % 360; 
+	hsv_saturation = Math.sqrt(mouseX**2 + mouseY**2)/(document.getElementById('color-wheel-image').offsetWidth/2);
+
+	// need to convert to rgb
+    let f = (n, k = (n + hsv_hue / 60) % 6) => hsv_value - hsv_value * hsv_saturation * Math.max(Math.min(k, 4 - k, 1), 0);
+    let r = Math.round(f(5) * 255);
+	let g = Math.round(f(3) * 255);
+	let b = Math.round(f(1) * 255);
+	console.log(hsv_hue, hsv_saturation, hsv_value);
+
+	rgb = `rgb(${r}, ${g}, ${b})`
+    document.getElementById('color-display').style.backgroundColor = rgb;
+
+	setColor(document.getElementById('color-label').value);
+	
+}
+
+// ----------------------------------------------------------------
 
 
 // -------------------- [CLEAR] IMPLEMENTATION --------------------
