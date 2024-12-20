@@ -108,11 +108,6 @@
 	.popright-item-label:hover {
 		background-color: #aaa;
 	}
-	/* .sub-menu-content li {
-		background: #aaa;
-		width: 10%;
-	} */
-
 
 	#bottom {
 	display: flex;
@@ -179,6 +174,63 @@
 	visibility: visible;
 	display: block;  
 	}
+	#color-menu {
+		position: absolute;
+		top: 30%;
+		left: 30%;
+		width: 25%;
+		height: 25%;
+	}
+	#color-menu-header {
+		cursor: move;
+		background-color: #111;
+		height: 10%;
+	}
+	#color-menu-title {
+		margin: 1%;
+		background-color: #111;
+		display: inline-block;
+	}
+	#color-menu-close {
+		float: right;
+		margin: 1%;
+		background-color: red;
+		color: white;
+	}
+	#color-menu-close:hover {
+		cursor: pointer;
+		background-color: darkred;
+	}
+	#color-menu-contents {
+		position: relative;
+		display: flex;
+		flex-direction: row;
+		width: 100%;
+		height: 88%;
+		justify-content: space-around;
+		align-items: center;
+	}
+	#color-display {
+		height: 20%;
+		aspect-ratio: 1/1;
+		background-color: black;
+	}
+	#color-wheel-image {
+		position: relative;
+		margin: auto;
+		width: 100%;
+		height: 100%;
+	}
+	#color-wheel-container {
+		height: 100%;
+		aspect-ratio: 1/1;
+	}
+	#value-slider {
+		writing-mode: vertical-lr;
+		background-color: linear-gradient(right, white, black);
+	}
+
+
 	#atom-window {
 	position: absolute;
 	top: 25%;
@@ -191,6 +243,17 @@
 	cursor: move;
 	background-color: #111;
 	}
+	#atom-window-close {
+	float: right;
+	margin: 10px;
+	background-color: red;
+	color: white;
+	}
+	#atom-window-close:hover {
+	cursor: pointer;
+	background-color: darkred;
+	}
+	
 	#periodic-table {
 	position: relative;
 	display: grid;
@@ -211,16 +274,7 @@
 	background-color: #aaa;
 	cursor: pointer;
 	}
-	#atom-window-close {
-	float: right;
-	margin: 10px;
-	background-color: red;
-	color: white;
-	}
-	#atom-window-close:hover {
-	cursor: pointer;
-	background-color: darkred;
-	}
+
 	.non-metal {background-color: blue;} .non-metal:hover {background-color: darkblue;}
 	.halogen {background-color: #ac94f4;} .halogen:hover {background-color: #643b9f;}
 	.noble-gas {background-color: #7600bc;} .noble-gas:hover {background-color: #4b0076;}
@@ -242,24 +296,23 @@
 	width: 100;
 	height: 95;
 	}
+
 	.slider::-webkit-slider-thumb {
-	-webkit-appearance: none;
-	appearance: none;
-	width: 40px;
-	height: 25px;
-	border-radius: 10%; 
-	background: red;
-	cursor: pointer;
+		-webkit-appearance: none; /* Remove default thumb styling */
+		width: 20px;
+		height: 20px;
+		border-radius: 50%;
+		background: gray; /* Customize thumb color */
+		cursor: pointer;
 	}
 
 	.slider::-moz-range-thumb {
-	width: 25px;
-	height: 25px;
-	border-radius: 50%;
-	background: #04AA6D;
-	cursor: pointer;
+		width: 20px;
+		height: 20px;
+		border-radius: 50%;
+		background: gray;
+		cursor: pointer;
 	}
-
 	:root {
 	--dark-bg: rgba(15, 15, 15, 0.95);
 	--spacing: 350px;
@@ -355,24 +408,27 @@
 						<div class="popright">
 
 							<div class="popright-item">
-								<button class="popright-item-label clickable">Menu</button>
+								<button class="popright-item-label clickable" onclick="document.querySelectorAll('#color-menu').forEach(function(v, i, a) {v.classList.add('show'); v.classList.remove('hide')});">Menu</button>
 							</div>
 							<div class="popright-item">
-								<button class="popright-item-label clickable">Backdrop</button>
+								<button class="popright-item-label clickable" onclick="document.querySelectorAll('#color-menu').forEach(function(v, i, a) {v.classList.add('show'); v.classList.remove('hide')});">Backdrop</button>
 							</div>
 							<div class="popright-item">
-								<button class="popright-item-label clickable">Grid</button>
+								<button class="popright-item-label clickable" onclick="document.querySelectorAll('#color-menu').forEach(function(v, i, a) {v.classList.add('show'); v.classList.remove('hide')});">Grid</button>
+							</div>
+							<div class="popright-item">
+								<button class="popright-item-label clickable" onclick="document.querySelectorAll('#color-menu').forEach(function(v, i, a) {v.classList.add('show'); v.classList.remove('hide')});">Text</button>
 							</div>
 
 						</div>
 					</div>
 
 					<div class="dropdown-item">
-                		<button class="dropdown-item-label dropdown-color">Test i</button>
+                		<button class="dropdown-item-label dropdown-color">Sizing</button>
 						<div class="popright">
 
 							<div class="popright-item">
-								<button class="popright-item-label clickable">Test</button>
+								<button class="popright-item-label clickable">Another Window</button>
 							</div>
 						</div>
 					</div>
@@ -414,6 +470,7 @@
                 </div>
             </div>
 
+			<!-- REPRESENTATIONS -->
 			<div class="menu-item">
                 <button class="menu-item-label menu-item-color">Representations</button>
                 <div class="dropdown">
@@ -427,9 +484,27 @@
             </div>
         </span>
         <span style="position: relative;">
-            <div id="fps">FPS: 0</div>
+            <div id="fps">FPS: 60</div>
         </span>
     </div>
+
+	<!-- COLOR WHEEL -->
+	<div id="color-menu" class="window hide">
+        <div id="color-menu-header">
+            <span id="color-menu-title">COLOR MENU</span>
+            <button id="color-menu-close"  onclick="document.querySelectorAll('#color-menu').forEach(function(v, i, a) {v.classList.remove('show'); v.classList.add('hide')})"> <b>X</b></button>
+        </div>
+		<div id="color-menu-contents">
+			<div id="color-display"></div>
+			<div id="color-wheel-container">
+				<img id="color-wheel-image" class="clickable" src="hsv_wheel.png" alt="">
+			</div>
+			<input class="slider" id="value-slider" type="range" min="1" max="100" value="1">
+		</div>
+
+	</div>
+
+	<!-- ATOM WINDOW -->
     <div id="atom-window" class="window hide">
         <div id="atom-window-header">
             <span style="padding: 10px; background-color: #111; display: inline-block;">ATOM MENU</span>
@@ -57131,7 +57206,7 @@ function dragElement(elmnt) {
 	}
 }; 
 dragElement(document.getElementById("atom-window"));
-// dragElement(document.getElementById("color-wheel"));
+dragElement(document.getElementById("color-menu"));
 
 
 // -------------------- [CLEAR] IMPLEMENTATION --------------------
@@ -57140,7 +57215,7 @@ document.getElementById('clear').onclick = function() {
 		spheres.forEach(function( v, i, a ) { scene.remove(v) });
 	}
 	if (Object.keys(cylinders).length > 0) {
-		Object.keys(cylinders).forEach(function( v, i, a ) { scene.remove(cylinders[v]) });
+		Object.keys(cylinders).forEach(function( v, i, a ) { scene.remove(cylinders[v]) }); // instancedMesh updating not done
 	}
 	scene.remove(spheres);
 	scene.remove(cylinders);
