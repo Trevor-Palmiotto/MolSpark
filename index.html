@@ -56947,30 +56947,36 @@ const loadBondInstances = (structure, states) => {
 
 	connectivity  = {};
 	
-	// so ugly...
-	for (const state of states) {
-		const chains = structure[state];
+	// so ugly... eventually, this will be a lattice NN search
+	let ctr = 0;
+	for (const sID of states) {
+		const state = SCRA.s[sID];
+		
+		for (const cID_i in state.c) {
+			const chain_i = state.c[cID_i];
 
-		for (const chain_i in chains) {
-			const residues_i = chains[chain_i];
+			for (const rID_i in chain_i.r) {
+				const resid_i = chain_i.r[rID_i];
 
-			for (const residueKey_i in residues_i) {
-				const residue_i = residues_i[residueKey_i];
-				const atoms_i   = residue_i.atoms;
+				for (const aID_i in resid_i.a) {
+					const atom_i  = resid_i.a[aID_i];
 
-				for (const atomKey_i in atoms_i) {
-					const atom_i = atoms_i[atomKey_i];
+					for (const cID_j in state.c) {
+						const chain_j = state.c[cID_j];
 
+						for (const rID_j in chain_j.r) {
+							const resid_j = chain_j.r[rID_j];
 
-					for (const chain_j in chains) {
-						const residues_j = chains[chain_j];
-
-						for (const residueKey_j in residues_j) {
-							const residue_j = residues_j[residueKey_j];
-							const atoms_j   = residue_j.atoms;
-
-							for (const atomKey_j in atoms_j) {
-								const atom_j = atoms_j[atomKey_j];
+							for (const aID_j in resid_j.a) {
+								const atom_j  = resid_j.a[aID_j];
+								
+								if (atom_i.number === atom_j.number) continue;
+								const pointA   = atom_i.pos;
+								const pointB   = atom_j.pos;
+								const ideal    = 0.5 * ((atomic_models[atom_i.atomType]["radius"]) + (atomic_models[atom_j.atomType]["radius"]));
+								const distance = pointA.distanceTo(pointB);
+								
+								if (Math.abs(ideal-distance) > threshold) continue;
 							}
 						}
 					}
@@ -57355,7 +57361,7 @@ document.getElementById('value-slider').onchange = function(e) {
 
 
 // -------------------- [CLEAR] IMPLEMENTATION --------------------
-document.getElementById('clear').onclick = function() {
+document.getElementById('clear').onclick = function	() {
 	if (spheres.length > 0) {
 		spheres.forEach(function( v, i, a ) { scene.remove(v) });
 	}
