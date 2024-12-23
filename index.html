@@ -486,7 +486,7 @@
 	<div id="color-menu" class="window hide">
         <div id="color-menu-header">
             <span id="color-menu-title">COLOR MENU</span>
-            <button id="color-menu-close"  onclick="document.querySelectorAll('#color-menu').forEach(function(v, i, a) {v.classList.remove('show'); v.classList.add('hide')}); document.getElementById('color-display').style.backgroundColor = 'black';"> <b>X</b></button>
+            <button id="color-menu-close"  onclick="document.querySelectorAll('#color-menu').forEach(function(v, i, a) {v.classList.remove('show'); v.classList.add('hide')}); document.getElementById('color-display').style.backgroundColor = 'black'; document.getElementById('value-slider').value = '50';"> <b>X</b></button>
         </div>
 		<div id="color-menu-contents">
 			<div id="color-display"></div>
@@ -494,7 +494,7 @@
 			<div id="color-wheel-container">
 				<img id="color-wheel-image" class="clickable" src="hsv_wheel.png" alt="">
 			</div>
-			<input class="slider" id="value-slider" type="range" min="0" max="100" value="0">
+			<input class="slider" id="value-slider" type="range" min="0" max="100" value="50">
 		</div>
 
 	</div>
@@ -56742,89 +56742,47 @@ const atomic_models = {
     "OG" : { 'z': 118, "radius": 0.400, "color": 0x000000 },
 };
 
-// storage objects for easy access
-var SCRA        = {}; // states -> chains -> residues -> atoms
+// ------------------- system storage objects ---------------------
+var SCRA        = {}; // states --> chains -> residues -> atoms
 var spheres     = [];
-// var colorList   = [];
 
 var bonds_index = {};
 var index_bonds = [];
 var cylinders   = [];
 
 var connectivity = {};
+// ----------------------------------------------------------------
 
-
-const loadAtoms = (atoms) => {
-
-	spheres = []; // not fast to reinit every time?
-
-	for (const atom in atoms) {
-		let geometry      = new SphereGeometry( 0.2*atomic_models[atoms[atom]["atomType"]]["radius"], 18, 18 );
-		let material      = new MeshStandardMaterial( { color: atomic_models[atoms[atom]["atomType"]]["color"] });
-		let mesh          = new Mesh( geometry, material );
-		mesh.position.set( atoms[atom]["coordinates"].x, atoms[atom]["coordinates"].y, atoms[atom]["coordinates"].z );
-		spheres.push(mesh);
-		scene.add(mesh);
-	}
-};
-
-// const loadAtomInstances = (atoms) => {
-	
-// 	const atomGeometry = new SphereGeometry(0.2, 18, 18);
-// 	const atomMaterial = new MeshStandardMaterial({ color: 0x888888 });
-// 	spheres 		   = new InstancedMesh(atomGeometry, atomMaterial, atoms.length);
-	
-// 	const matrix = new Matrix4();
-// 	const color  = new Color();
-
-// 	for (let i=0; i < atoms.length; i++) {
-		
-// 		color.set(atomic_models[atoms[i]["atomType"]]["color"]);
-
-// 		let radius = atomic_models[atoms[i]["atomType"]]["radius"];
-// 		let pos    = atoms[i]["coordinates"];
-
-// 		// reset the matrix
-// 		matrix.identity();
-
-// 		// setting the position and scale
-// 		matrix.setPosition(pos.x, pos.y, pos.z);
-// 		matrix.scale(new Vector3(radius, radius, radius));
-		
-// 		spheres.setMatrixAt(i, matrix);
-// 		spheres.setColorAt (i, color);
-// 	}
-// 	scene.add(spheres);
-
-// }
 
 // Uses SCRA
-const loadAtomInstances = (structure, states) => {
-	console.log(structure);
+const loadAtomInstances = (SCRA, states) => {
 	let count = 0;
-	for (const state of states) {
-		count += structure[state].atomCount;
-		console.log(state, structure[state].atomCount);
+	for (const sID of states) {
+		console.log(sID);
+		count += SCRA.s[sID].atomCount;
 	}
+	// Initializing InstancedMesh
 	const atomGeometry = new SphereGeometry(0.2, 18, 18);
 	const atomMaterial = new MeshStandardMaterial({ color: 0x888888 });
 	spheres 		   = new InstancedMesh(atomGeometry, atomMaterial, count);
 	
+	// Initializing position and color objects
 	const matrix = new Matrix4();
 	const color  = new Color();
 	
 	let i = 0;
-	for (const state of states) {
-		const chains = structure[state];
+	for (const sID of states) {
+		const state = SCRA.s[sID];
+		
+		for (const cID in state.c) {
+			const chain = state.c[cID];
 
-		for (const chain in chains) {
-			const residues = chains[chain];
+			for (const rID in chain.r) {
+				const resid = chain.r[rID];
 
-			for (const residueKey in residues) {
-				const residue = residues[residueKey];
-				const atoms   = residue.atoms;
-				for (const atomKey in atoms) {
-					const atom = atoms[atomKey];
+				for (const aID in resid.a) {
+					const atom = resid.a[aID];
+
 					color.set(atomic_models[atom.type]["color"]);
 					let radius = atomic_models[atom.type]["radius"];
 					let pos    = atom.pos;
@@ -56845,8 +56803,42 @@ const loadAtomInstances = (structure, states) => {
 		}
 
 	}
+	console.log(spheres);
 	scene.add(spheres);
 }
+// let i = 0;
+// 	for (const state of states) {
+// 		const chains = structure[state];
+// 		for (const chain in chains) {
+// 			console.log(chain)
+// 			const residues = chains[chain];
+
+// 			for (const residueKey in residues) {
+// 				const residue = residues[residueKey];
+// 				const atoms   = residue.atoms;
+// 				for (const atomKey in atoms) {
+// 					const atom = atoms[atomKey];
+// 					color.set(atomic_models[atom.type]["color"]);
+// 					let radius = atomic_models[atom.type]["radius"];
+// 					let pos    = atom.pos;
+
+// 					// // reset the matrix
+// 					matrix.identity();
+
+// 					// // setting the position and scale
+// 					matrix.setPosition(pos.x, pos.y, pos.z);
+// 					matrix.scale(new Vector3(radius, radius, radius));
+					
+// 					spheres.setMatrixAt(i, matrix);
+// 					spheres.setColorAt (i, color);
+
+// 					i++;
+// 				}
+// 			}
+// 		}
+
+// 	}
+// 	scene.add(spheres);
 
 const loadBonds = (atoms) => {
 
@@ -56888,10 +56880,106 @@ const loadBonds = (atoms) => {
 };
 
 // need to update to use SCRA
-const loadBondInstances = (atoms) => {
+// const loadBondInstances = (atoms) => {
+
+// 	const keys 	  = Array.from({ length: atoms.length }, (_, i) => i);
+// 	connectivity  = Object.fromEntries(keys.map(key => [key, []])); // * not fast to reinit every time a bond is updated, update function needed for verlet
+// 	let threshold = 0.05;
+
+// 	let bondCounter = 0;
+
+// 	// First finding the number of bonds -> hopefully this can be sped up
+// 	for (let i=0; i < atoms.length; i++) {
+// 		for (let j=i+1; j < atoms.length; j++) {
+
+// 			// checking if bond should occur
+// 			if (i === j) continue;
+// 			if (atoms[i]["chainId"] !== atoms[j]["chainId"] || atoms[i]["state"] !== atoms[j]["state"]) continue
+// 			const pointA   = atoms[i]["coordinates"];
+// 			const pointB   = atoms[j]["coordinates"];
+// 			const ideal    = ((atomic_models[atoms[i]["atomType"]]["radius"]) + (atomic_models[atoms[j]["atomType"]]["radius"]))/2; // this doesn't work on unknown atom types
+// 			const distance = pointA.distanceTo(pointB);
+			
+// 			if (Math.abs(ideal-distance) > threshold) continue;
+
+// 			connectivity[i].push(j);
+// 			connectivity[j].push(i);
+
+// 			bonds_index[[i, j]] = bondCounter++;
+// 			index_bonds.push([i, j])
+// 		}
+// 	}
+
+// 	const bondGeometry = new CylinderGeometry(0.01, 0.01, 1, 8);
+// 	const bondMaterial = new MeshStandardMaterial({ color: 0xaaaaaa })
+// 	cylinders 		   = new InstancedMesh(bondGeometry, bondMaterial, index_bonds.length);
+
+// 	// Helper objects for positioning and rotating
+// 	const bondMatrix = new Matrix4();
+// 	const bondVector = new Vector3();
+
+// 	for (let i=0; i < index_bonds.length; i++) {
+
+// 		const pointA = atoms[index_bonds[i][0]]["coordinates"]
+// 		const pointB = atoms[index_bonds[i][1]]["coordinates"]
+
+// 		// calculate midpoint and orientation
+// 		bondVector.copy(pointB).sub(pointA);
+// 		const bondLength = bondVector.length();
+// 		const bondMidPoint = pointA.clone().addScaledVector(bondVector, 0.5);
+
+// 		// align bond between A and B
+// 		bondMatrix.identity();
+// 		bondMatrix.lookAt(pointA, pointB, new Vector3(0, 1, 0));
+// 		bondMatrix.multiply(new Matrix4().makeRotationX(Math.PI / 2));
+// 		bondMatrix.setPosition(bondMidPoint);
+// 		bondMatrix.scale(new Vector3(1, bondLength, 1));
+// 		cylinders.setMatrixAt(i, bondMatrix);
+// 	}
+
+// 	scene.add(cylinders);
+
+// };
+
+
+// Do an initial scan to find all the 
+const loadBondInstances = (structure, states) => {
+
+	connectivity  = {};
+	
+	// so ugly...
+	for (const state of states) {
+		const chains = structure[state];
+
+		for (const chain_i in chains) {
+			const residues_i = chains[chain_i];
+
+			for (const residueKey_i in residues_i) {
+				const residue_i = residues_i[residueKey_i];
+				const atoms_i   = residue_i.atoms;
+
+				for (const atomKey_i in atoms_i) {
+					const atom_i = atoms_i[atomKey_i];
+
+
+					for (const chain_j in chains) {
+						const residues_j = chains[chain_j];
+
+						for (const residueKey_j in residues_j) {
+							const residue_j = residues_j[residueKey_j];
+							const atoms_j   = residue_j.atoms;
+
+							for (const atomKey_j in atoms_j) {
+								const atom_j = atoms_j[atomKey_j];
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 
 	const keys 	  = Array.from({ length: atoms.length }, (_, i) => i);
-	connectivity  = Object.fromEntries(keys.map(key => [key, []])); // * not fast to reinit every time a bond is updated, update function needed
 	let threshold = 0.05;
 
 	let bondCounter = 0;
@@ -56949,7 +57037,6 @@ const loadBondInstances = (atoms) => {
 
 };
 
-
 const updateSpheres = (coordinates) => {
   for (const key in coordinates) {
     spheres[Number(key)].position.set( coordinates[key].x, coordinates[key].y, coordinates[key].z );
@@ -56973,7 +57060,7 @@ const canvas       = document.querySelector('#bg');
 const clock        = new Clock();
 const renderer     = new WebGLRenderer({ canvas: canvas });
 const scene        = new Scene();
-const gridHelper   = new GridHelper(40, 40, 0xFF0000, 0xFF0000);
+const gridHelper   = new GridHelper(40, 40, 0x0000FF, 0x0000FF);
 const pointLight   = new PointLight( 0xFFFFFF, 10, 1000, 0.0001 );
 const ambientLight = new AmbientLight( 0xFFFFFF );
 const camera       = new PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 500 );
@@ -57086,29 +57173,30 @@ const animate = () => {
 // ---------------- [ADD -> SYSTEM] IMPLEMENTATION ----------------
 function parsePDB(lines) {
 
-	const hierarchy  = {0:{atomCount: 0}}; // Hierarchical object: state -> chain -> residue -> atoms (hierarchy[0] is the case for single state)
+	const hierarchy  = {s: {0:{atomCount: 0, c: {}}}}; // Hierarchical object: state -> chain -> residue -> atoms (hierarchy[0] is the case for single state)
 	let currentState = null;   // Current MODEL number
-	let currentChain = null;   // Current chain identifier
+	let atomCounter = 1; // Consider this being replaced by atomSerial...
 
-	let atomCounter = 1;
 	for (const line of lines) {
 		const recordType = line.slice(0, 6).trim();
 
 		if (recordType === "MODEL") {
 			// Start a new state
 			currentState = parseInt(line.slice(10, 14).trim(), 10);
-			if (!hierarchy[currentState]) {
-				hierarchy[currentState] = {atomCount: 0};
-			}
-		} else if (recordType === "ENDMDL") {
+			if (!hierarchy.s[currentState]) hierarchy.s[currentState] = {atomCount: 0, c: {}};
+
+		} 
+		else if (recordType === "ENDMDL") {
 			// End of current state
 			currentState = null;
-		} else if (recordType === "ATOM" || recordType === "HETATM") {
+
+		}
+		else if (recordType === "ATOM" || recordType === "HETATM") {
 			// Parse atom data
 			const atomSerial = parseInt(line.slice(6, 11).trim(), 10);
 			const atomName   = line.slice(12, 16).trim();
 			const resName    = line.slice(17, 20).trim();
-			const chainID    = line.slice(21, 22).trim();
+			const cID        = line.slice(21, 22).trim();
 			const resSeq     = parseInt(line.slice(22, 26).trim(), 10);
 			const iCode      = line.slice(26, 27).trim(); // Optional insertion code
 			const x          = parseFloat(line.slice(30, 38).trim());
@@ -57116,33 +57204,28 @@ function parsePDB(lines) {
 			const z          = parseFloat(line.slice(46, 54).trim());
 			const atomType   = line.substring(76, 78).trim(); // Atom type -- needs to handle non-canonical atom naming here?
 
-			const stateIndex = ((currentState !== null) ? currentState: 0);
-			if (!hierarchy[stateIndex][chainID]) {hierarchy[stateIndex][chainID] = {atomCount: 0};}
+			const sID = ((currentState !== null) ? currentState : 0);
 
-			const chainData = hierarchy[stateIndex][chainID];
+			if (!hierarchy.s[sID].c[cID]) {hierarchy.s[sID].c[cID] = {atomCount: 0, r: {}};}
+
 
 			// Set residue key (initialize as necessary)
-			const residueKey = `${resSeq}${iCode}`;
-			if (!chainData[residueKey]) {
-				chainData[residueKey] = {
-					atomCount: 0,
-					resName: resName,
-					atoms: []
-				};
-			}
+			const rID = `${resSeq}${iCode}`;
+			if (!hierarchy.s[sID].c[cID].r[rID]) hierarchy.s[sID].c[cID].r[rID] = {atomCount: 0, residueName: resName, a: {}};
 
 			// Add atom to residue
-			chainData[residueKey].atoms.push({
+			hierarchy.s[sID].c[cID].r[rID].a[atomSerial] = {
 				number: atomCounter++,
 				serial: atomSerial,
 				name  : atomName,
 				type  : atomType,
 				pos   : new Vector3(x, y, z).divideScalar(10) // angstroms to nanometers
-			});
+			};
+
 			// update atom counts
-			hierarchy[stateIndex].atomCount++;
-			chainData[residueKey].atomCount++;
-			chainData.atomCount++;
+			hierarchy.s[sID].atomCount++;
+			hierarchy.s[sID].c[cID].atomCount++;
+			hierarchy.s[sID].c[cID].r[rID].atomCount++;
 		}
 	}
 	return hierarchy;
@@ -57157,8 +57240,8 @@ document.getElementById('browse-pdb').onchange = function() {
 		SCRA = parsePDB(lines);
 		document.getElementById('browse-pdb').value = "";
 		// Handling single vs multi-state files
-		console.log(Object.keys(SCRA).length);
-		loadAtomInstances(SCRA, ((Object.keys(SCRA).length > 1) ? [1]: [0]));
+		console.log(Object.keys(SCRA.s).length);
+		loadAtomInstances(SCRA, ((Object.keys(SCRA.s).length > 1) ? [1]: [0]));
 		// loadBondInstances(atoms);
 	};
 };
