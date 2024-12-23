@@ -56800,10 +56800,12 @@ const loadAtoms = (atoms) => {
 
 // Uses SCRA
 const loadAtomInstances = (structure, states) => {
-	
+	console.log(structure);
 	let count = 0;
-	for (const state of states) count += structure[state].atomCount;
-
+	for (const state of states) {
+		count += structure[state].atomCount;
+		console.log(state, structure[state].atomCount);
+	}
 	const atomGeometry = new SphereGeometry(0.2, 18, 18);
 	const atomMaterial = new MeshStandardMaterial({ color: 0x888888 });
 	spheres 		   = new InstancedMesh(atomGeometry, atomMaterial, count);
@@ -57084,7 +57086,7 @@ const animate = () => {
 // ---------------- [ADD -> SYSTEM] IMPLEMENTATION ----------------
 function parsePDB(lines) {
 
-	const hierarchy  = {0:{}}; // Hierarchical object: state -> chain -> residue -> atoms (hierarchy[0] is the case for single state)
+	const hierarchy  = {0:{atomCount: 0}}; // Hierarchical object: state -> chain -> residue -> atoms (hierarchy[0] is the case for single state)
 	let currentState = null;   // Current MODEL number
 	let currentChain = null;   // Current chain identifier
 
@@ -57115,7 +57117,6 @@ function parsePDB(lines) {
 			const atomType   = line.substring(76, 78).trim(); // Atom type -- needs to handle non-canonical atom naming here?
 
 			const stateIndex = ((currentState !== null) ? currentState: 0);
-
 			if (!hierarchy[stateIndex][chainID]) {hierarchy[stateIndex][chainID] = {atomCount: 0};}
 
 			const chainData = hierarchy[stateIndex][chainID];
@@ -57134,13 +57135,14 @@ function parsePDB(lines) {
 			chainData[residueKey].atoms.push({
 				number: atomCounter++,
 				serial: atomSerial,
-				name: atomName,
-				type: atomType,
-				pos: new Vector3(x, y, z).divideScalar(10) // angstroms to nanometers
+				name  : atomName,
+				type  : atomType,
+				pos   : new Vector3(x, y, z).divideScalar(10) // angstroms to nanometers
 			});
-
 			// update atom counts
 			hierarchy[stateIndex].atomCount++;
+			chainData[residueKey].atomCount++;
+			chainData.atomCount++;
 		}
 	}
 	return hierarchy;
@@ -57154,7 +57156,9 @@ document.getElementById('browse-pdb').onchange = function() {
 		const lines  = text.split('\n');
 		SCRA = parsePDB(lines);
 		document.getElementById('browse-pdb').value = "";
-		loadAtomInstances(SCRA, [1]); // [1] signifies to show first state, array allows multi-state overlays (which would require N-state instancedMeshes)
+		// Handling single vs multi-state files
+		console.log(Object.keys(SCRA).length);
+		loadAtomInstances(SCRA, ((Object.keys(SCRA).length > 1) ? [1]: [0]));
 		// loadBondInstances(atoms);
 	};
 };
