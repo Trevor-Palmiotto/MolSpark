@@ -56803,83 +56803,9 @@ const loadAtomInstances = (SCRA, states) => {
 		}
 
 	}
-	console.log(spheres);
 	scene.add(spheres);
 }
-// let i = 0;
-// 	for (const state of states) {
-// 		const chains = structure[state];
-// 		for (const chain in chains) {
-// 			console.log(chain)
-// 			const residues = chains[chain];
 
-// 			for (const residueKey in residues) {
-// 				const residue = residues[residueKey];
-// 				const atoms   = residue.atoms;
-// 				for (const atomKey in atoms) {
-// 					const atom = atoms[atomKey];
-// 					color.set(atomic_models[atom.type]["color"]);
-// 					let radius = atomic_models[atom.type]["radius"];
-// 					let pos    = atom.pos;
-
-// 					// // reset the matrix
-// 					matrix.identity();
-
-// 					// // setting the position and scale
-// 					matrix.setPosition(pos.x, pos.y, pos.z);
-// 					matrix.scale(new Vector3(radius, radius, radius));
-					
-// 					spheres.setMatrixAt(i, matrix);
-// 					spheres.setColorAt (i, color);
-
-// 					i++;
-// 				}
-// 			}
-// 		}
-
-// 	}
-// 	scene.add(spheres);
-
-const loadBonds = (atoms) => {
-
-	const keys 	  = Array.from({ length: atoms.length }, (_, i) => i);
-	bonds 	   	  = Object.fromEntries(keys.map(key => [key, []])); // * not fast to reinit every time a bond is updated
-	let threshold = 0.05;
-
-	for (let i=0; i < atoms.length; i++) {
-		for (let j=i+1; j < atoms.length; j++) {
-			// checking if bond should occur
-			if (i === j) continue;
-			if (atoms[i]["chainId"] !== atoms[j]["chainId"] || atoms[i]["state"] !== atoms[j]["state"]) continue
-			const pointA   = atoms[i]["coordinates"];
-			const pointB   = atoms[j]["coordinates"];
-			const ideal    = ((atomic_models[atoms[i]["atomType"]]["radius"]) + (atomic_models[atoms[j]["atomType"]]["radius"]))/2; // this doesn't work on unknown atom types
-			const distance = pointA.distanceTo(pointB);
-			
-			if (Math.abs(ideal-distance) > threshold) continue;
-
-			const midpoint = new Vector3().addVectors(pointA, pointB).multiplyScalar(0.5);
-			const geometry = new CylinderGeometry(0.01, 0.01, distance, 8);
-
-			// Create the cylinder mesh
-			const material = new MeshStandardMaterial({ color: 0xaaaaaa });
-			const cylinder = new Mesh(geometry, material);
-
-			// Position the cylinder
-			cylinder.position.copy(midpoint);
-			cylinder.lookAt(pointB);
-			cylinder.rotateX(Math.PI / 2);
-
-			// storing the bond
-			scene.add(cylinder);
-			cylinders[[i, j]] = cylinder;
-			bonds[i].push(j);
-			bonds[j].push(i);
-		}
-	}
-};
-
-// need to update to use SCRA
 // const loadBondInstances = (atoms) => {
 
 // 	const keys 	  = Array.from({ length: atoms.length }, (_, i) => i);
@@ -56943,12 +56869,28 @@ const loadBonds = (atoms) => {
 
 
 // Do an initial scan to find all the 
-const loadBondInstances = (structure, states) => {
+const loadBondInstances = (states) => {
 
-	connectivity  = {};
+	// system tree container
+	connectivity = {};
+
+	// approximate bond count
+	let numAtoms = 0;
+	for (const sID of states) numAtoms += SCRA.s[sID].atomCount;
+	let numBonds = numAtoms*3;
+
+	// initializing InstancedMesh
+	const bondGeometry = new CylinderGeometry(0.01, 0.01, 1, 8);
+	const bondMaterial = new MeshStandardMaterial({ color: 0xaaaaaa })
+	cylinders 		   = new InstancedMesh(bondGeometry, bondMaterial, numBonds);
 	
-	// so ugly... eventually, this will be a lattice NN search
-	let ctr = 0;
+	// Helper objects for positioning and rotating
+	const bondMatrix = new Matrix4();
+	const bondVector = new Vector3();
+	const threshold  = 0.5;
+
+	// SCRA tree quadratic comparison O(n*n) -> eventually will become lattice search O(4.5*n)
+	let bondIndex = 0;
 	for (const sID of states) {
 		const state = SCRA.s[sID];
 		
@@ -56960,6 +56902,9 @@ const loadBondInstances = (structure, states) => {
 
 				for (const aID_i in resid_i.a) {
 					const atom_i  = resid_i.a[aID_i];
+					const i_key = `${sID},${cID_i},${rID_i},${aID_i}`;
+
+					connectivity[i_key] = [];
 
 					for (const cID_j in state.c) {
 						const chain_j = state.c[cID_j];
@@ -56971,12 +56916,26 @@ const loadBondInstances = (structure, states) => {
 								const atom_j  = resid_j.a[aID_j];
 								
 								if (atom_i.number === atom_j.number) continue;
+								
 								const pointA   = atom_i.pos;
 								const pointB   = atom_j.pos;
-								const ideal    = 0.5 * ((atomic_models[atom_i.atomType]["radius"]) + (atomic_models[atom_j.atomType]["radius"]));
+								const ideal    = 0.5 * ((atomic_models[atom_i.type]["radius"]) + (atomic_models[atom_j.type]["radius"]));
 								const distance = pointA.distanceTo(pointB);
 								
 								if (Math.abs(ideal-distance) > threshold) continue;
+								const j_key = `${sID},${cID_j},${rID_j},${aID_j}`;
+
+								connectivity[i_key].push(j_key);
+
+								bondVector.copy(pointB).sub(pointA);
+								const bondLength   = bondVector.length();
+								const bondMidPoint = pointA.clone().addScaledVector(bondVector, 0.5);
+								bondMatrix.identity();
+								bondMatrix.lookAt(pointA, pointB, new Vector3(0, 1, 0));
+								bondMatrix.multiply(new Matrix4().makeRotationX(Math.PI / 2));
+								bondMatrix.setPosition(bondMidPoint);
+								bondMatrix.scale(new Vector3(1, bondLength, 1));
+								cylinders.setMatrixAt(bondIndex, bondMatrix);
 							}
 						}
 					}
@@ -56984,63 +56943,7 @@ const loadBondInstances = (structure, states) => {
 			}
 		}
 	}
-
-	const keys 	  = Array.from({ length: atoms.length }, (_, i) => i);
-	let threshold = 0.05;
-
-	let bondCounter = 0;
-
-	// First finding the number of bonds -> hopefully this can be sped up
-	for (let i=0; i < atoms.length; i++) {
-		for (let j=i+1; j < atoms.length; j++) {
-
-			// checking if bond should occur
-			if (i === j) continue;
-			if (atoms[i]["chainId"] !== atoms[j]["chainId"] || atoms[i]["state"] !== atoms[j]["state"]) continue
-			const pointA   = atoms[i]["coordinates"];
-			const pointB   = atoms[j]["coordinates"];
-			const ideal    = ((atomic_models[atoms[i]["atomType"]]["radius"]) + (atomic_models[atoms[j]["atomType"]]["radius"]))/2; // this doesn't work on unknown atom types
-			const distance = pointA.distanceTo(pointB);
-			
-			if (Math.abs(ideal-distance) > threshold) continue;
-
-			connectivity[i].push(j);
-			connectivity[j].push(i);
-
-			bonds_index[[i, j]] = bondCounter++;
-			index_bonds.push([i, j])
-		}
-	}
-
-	const bondGeometry = new CylinderGeometry(0.01, 0.01, 1, 8);
-	const bondMaterial = new MeshStandardMaterial({ color: 0xaaaaaa })
-	cylinders 		   = new InstancedMesh(bondGeometry, bondMaterial, index_bonds.length);
-
-	// Helper objects for positioning and rotating
-	const bondMatrix = new Matrix4();
-	const bondVector = new Vector3();
-
-	for (let i=0; i < index_bonds.length; i++) {
-
-		const pointA = atoms[index_bonds[i][0]]["coordinates"]
-		const pointB = atoms[index_bonds[i][1]]["coordinates"]
-
-		// calculate midpoint and orientation
-		bondVector.copy(pointB).sub(pointA);
-		const bondLength = bondVector.length();
-		const bondMidPoint = pointA.clone().addScaledVector(bondVector, 0.5);
-
-		// align bond between A and B
-		bondMatrix.identity();
-		bondMatrix.lookAt(pointA, pointB, new Vector3(0, 1, 0));
-		bondMatrix.multiply(new Matrix4().makeRotationX(Math.PI / 2));
-		bondMatrix.setPosition(bondMidPoint);
-		bondMatrix.scale(new Vector3(1, bondLength, 1));
-		cylinders.setMatrixAt(i, bondMatrix);
-	}
-
 	scene.add(cylinders);
-
 };
 
 const updateSpheres = (coordinates) => {
@@ -57248,7 +57151,7 @@ document.getElementById('browse-pdb').onchange = function() {
 		// Handling single vs multi-state files
 		console.log(Object.keys(SCRA.s).length);
 		loadAtomInstances(SCRA, ((Object.keys(SCRA.s).length > 1) ? [1]: [0]));
-		// loadBondInstances(atoms);
+		loadBondInstances(((Object.keys(SCRA.s).length > 1) ? [1]: [0]));
 	};
 };
 // ----------------------------------------------------------------
