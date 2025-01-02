@@ -56758,7 +56758,6 @@ var connectivity = {};
 const loadAtomInstances = (SCRA, states) => {
 	let count = 0;
 	for (const sID of states) {
-		console.log(sID);
 		count += SCRA.s[sID].atomCount;
 	}
 	// Initializing InstancedMesh
@@ -56883,11 +56882,10 @@ const loadBondInstances = (states) => {
 	const bondGeometry = new CylinderGeometry(0.01, 0.01, 1, 8);
 	const bondMaterial = new MeshStandardMaterial({ color: 0xaaaaaa })
 	cylinders 		   = new InstancedMesh(bondGeometry, bondMaterial, numBonds);
-	
 	// Helper objects for positioning and rotating
 	const bondMatrix = new Matrix4();
 	const bondVector = new Vector3();
-	const threshold  = 0.5;
+	const threshold  = 0.05;
 
 	// SCRA tree quadratic comparison O(n*n) -> eventually will become lattice search O(4.5*n)
 	let bondIndex = 0;
@@ -56916,7 +56914,6 @@ const loadBondInstances = (states) => {
 								const atom_j  = resid_j.a[aID_j];
 								
 								if (atom_i.number === atom_j.number) continue;
-								
 								const pointA   = atom_i.pos;
 								const pointB   = atom_j.pos;
 								const ideal    = 0.5 * ((atomic_models[atom_i.type]["radius"]) + (atomic_models[atom_j.type]["radius"]));
@@ -56936,6 +56933,7 @@ const loadBondInstances = (states) => {
 								bondMatrix.setPosition(bondMidPoint);
 								bondMatrix.scale(new Vector3(1, bondLength, 1));
 								cylinders.setMatrixAt(bondIndex, bondMatrix);
+								bondIndex++;
 							}
 						}
 					}
@@ -56943,6 +56941,8 @@ const loadBondInstances = (states) => {
 			}
 		}
 	}
+	cylinders.count = bondIndex;
+	console.log(cylinders);
 	scene.add(cylinders);
 };
 
@@ -57149,7 +57149,6 @@ document.getElementById('browse-pdb').onchange = function() {
 		SCRA = parsePDB(lines);
 		document.getElementById('browse-pdb').value = "";
 		// Handling single vs multi-state files
-		console.log(Object.keys(SCRA.s).length);
 		loadAtomInstances(SCRA, ((Object.keys(SCRA.s).length > 1) ? [1]: [0]));
 		loadBondInstances(((Object.keys(SCRA.s).length > 1) ? [1]: [0]));
 	};
