@@ -16,11 +16,11 @@
 	left: 0;
 	}
 	#fps {
-	background-color: rgba(0,0,0,0);
-	padding: 16px;
-	font-size: 16px;
-	border: none;
-	float: right;
+		background-color: rgba(0,0,0,0);
+		padding: 16px;
+		font-size: 16px;
+		border: none;
+		float: right;
 	}
 	.text-color {
 		color: white;
@@ -110,23 +110,36 @@
 		background-color: #aaa;
 	}
 
+	#sequence {
+		position: relative;
+		display: inline-block;
+		font-family: "Courier New";
+		padding: 16px;
+		font-size: 16px;
+		border: none;
+		width: 55%;
+		white-space: nowrap;
+		overflow: scroll;
+
+	}
+
 	#bottom {
-	display: flex;
-	position: absolute;
-	padding: 0.5%;
-	overflow: hidden;
-	bottom: 1%;
-	width: 98%;
-	text-align: center;
-	align-items: center;
-	justify-content: space-between;
+		display: flex;
+		position: absolute;
+		padding: 0.5%;
+		overflow: hidden;
+		bottom: 1%;
+		width: 98%;
+		text-align: center;
+		align-items: center;
+		justify-content: space-between;
 	}
 	.btn {
-	font-family: "Courier New";
-	text-align: center;
-	text-decoration: none;
-	background-color: #1E01C4;
-	font-size: 16px;
+		font-family: "Courier New";
+		text-align: center;
+		text-decoration: none;
+		background-color: #1E01C4;
+		font-size: 16px;
 	}
 	.left {
 	float: left;
@@ -164,8 +177,8 @@
 	background-color: #333;
 	}
 	.show {
-	visibility: visible;
-	display: block;  
+		visibility: visible;
+		display: block;  
 	}
 	#color-menu {
 		position: absolute;
@@ -222,29 +235,27 @@
 		writing-mode: vertical-lr;
 		background-color: linear-gradient(right, white, black);
 	}
-
-
 	#atom-window {
-	position: absolute;
-	top: 25%;
-	left: 30%;
-	display: flex;
-	flex-direction: column;
-	justify-content: space-between;
+		position: absolute;
+		top: 25%;
+		left: 30%;
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
 	}
 	#atom-window-header {
-	cursor: move;
-	background-color: #111;
+		cursor: move;
+		background-color: #111;
 	}
 	#atom-window-close {
-	float: right;
-	margin: 10px;
-	background-color: red;
-	color: white;
+		float: right;
+		margin: 10px;
+		background-color: red;
+		color: white;
 	}
 	#atom-window-close:hover {
-	cursor: pointer;
-	background-color: darkred;
+		cursor: pointer;
+		background-color: darkred;
 	}
 	
 	#periodic-table {
@@ -255,9 +266,9 @@
 	justify-content: center;
 	}
 	.atom-cell {
-	padding: 6px;
-	background-color: white;
-	text-align: center;
+		padding: 6px;
+		background-color: white;
+		text-align: center;
 	}
 	.atom-cell-empty {
 	padding: 6px;
@@ -368,12 +379,13 @@
 		grid-column: 6 / 12;
 	}
 	</style>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MolSpark</title>
-  </head>
-  <body>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>MolSpark</title>
+	</head>
+	<body>
     <canvas id="bg"></canvas>
     <div id="top">
+
         <span id="menu">
 			<!-- ADD -->
             <div class="menu-item">
@@ -474,9 +486,23 @@
 					<div class="dropdown-item">
 						<button class="dropdown-item-label">Geometry</button>
 					</div>
+					<div class="dropdown-item">
+						<button class="dropdown-item-label">Hide</button>
+					</div>
+					<div class="dropdown-item">
+						<button class="dropdown-item-label">Show</button>
+					</div>
                 </div>
             </div>
+
+			<!-- SEQUENCE WINDOW -->
+			<div class="menu-item" style="width: 60%;">
+				<button id="sequence"></button>
+			</div>
+
         </span>
+
+
         <span style="position: relative;">
             <div id="fps" class="text-color">FPS: 60</div>
         </span>
@@ -698,6 +724,7 @@
             <button id="Lr" class="atom-cell actinide">Lr</button>
         </div>
     </div>
+
     <span id="bottom">
         <span class="left">
             <button class="btn menu-item-color text-color" id="clear">Clear</button>
@@ -707,10 +734,9 @@
         </span>
     </span>
 
-	        <!-- DEPENDENCIES -->
-        <!-- three.js -->
-        <script type="module" id="main">
-            /**
+<!-- DEPENDENCIES -->
+<script type="module" id="main">
+/**
  * @license
  * Copyright 2010-2024 Three.js Authors
  * SPDX-License-Identifier: MIT
@@ -56786,13 +56812,14 @@ const loadAtomInstances = (SCRA, states) => {
 					let radius = atomic_models[atom.type]["radius"];
 					let pos    = atom.pos;
 
-					// // reset the matrix
+					// reset the matrix
 					matrix.identity();
 
-					// // setting the position and scale
+					// set the position and scale
 					matrix.setPosition(pos.x, pos.y, pos.z);
 					matrix.scale(new Vector3(radius, radius, radius));
 					
+					// set matrix and color in InstancedMesh
 					spheres.setMatrixAt(i, matrix);
 					spheres.setColorAt (i, color);
 
@@ -56800,74 +56827,12 @@ const loadAtomInstances = (SCRA, states) => {
 				}
 			}
 		}
-
 	}
+	spheres.frustumCulled = true; // is this possible? can't tell if this does anything
 	scene.add(spheres);
 }
 
-// const loadBondInstances = (atoms) => {
-
-// 	const keys 	  = Array.from({ length: atoms.length }, (_, i) => i);
-// 	connectivity  = Object.fromEntries(keys.map(key => [key, []])); // * not fast to reinit every time a bond is updated, update function needed for verlet
-// 	let threshold = 0.05;
-
-// 	let bondCounter = 0;
-
-// 	// First finding the number of bonds -> hopefully this can be sped up
-// 	for (let i=0; i < atoms.length; i++) {
-// 		for (let j=i+1; j < atoms.length; j++) {
-
-// 			// checking if bond should occur
-// 			if (i === j) continue;
-// 			if (atoms[i]["chainId"] !== atoms[j]["chainId"] || atoms[i]["state"] !== atoms[j]["state"]) continue
-// 			const pointA   = atoms[i]["coordinates"];
-// 			const pointB   = atoms[j]["coordinates"];
-// 			const ideal    = ((atomic_models[atoms[i]["atomType"]]["radius"]) + (atomic_models[atoms[j]["atomType"]]["radius"]))/2; // this doesn't work on unknown atom types
-// 			const distance = pointA.distanceTo(pointB);
-			
-// 			if (Math.abs(ideal-distance) > threshold) continue;
-
-// 			connectivity[i].push(j);
-// 			connectivity[j].push(i);
-
-// 			bonds_index[[i, j]] = bondCounter++;
-// 			index_bonds.push([i, j])
-// 		}
-// 	}
-
-// 	const bondGeometry = new CylinderGeometry(0.01, 0.01, 1, 8);
-// 	const bondMaterial = new MeshStandardMaterial({ color: 0xaaaaaa })
-// 	cylinders 		   = new InstancedMesh(bondGeometry, bondMaterial, index_bonds.length);
-
-// 	// Helper objects for positioning and rotating
-// 	const bondMatrix = new Matrix4();
-// 	const bondVector = new Vector3();
-
-// 	for (let i=0; i < index_bonds.length; i++) {
-
-// 		const pointA = atoms[index_bonds[i][0]]["coordinates"]
-// 		const pointB = atoms[index_bonds[i][1]]["coordinates"]
-
-// 		// calculate midpoint and orientation
-// 		bondVector.copy(pointB).sub(pointA);
-// 		const bondLength = bondVector.length();
-// 		const bondMidPoint = pointA.clone().addScaledVector(bondVector, 0.5);
-
-// 		// align bond between A and B
-// 		bondMatrix.identity();
-// 		bondMatrix.lookAt(pointA, pointB, new Vector3(0, 1, 0));
-// 		bondMatrix.multiply(new Matrix4().makeRotationX(Math.PI / 2));
-// 		bondMatrix.setPosition(bondMidPoint);
-// 		bondMatrix.scale(new Vector3(1, bondLength, 1));
-// 		cylinders.setMatrixAt(i, bondMatrix);
-// 	}
-
-// 	scene.add(cylinders);
-
-// };
-
-
-// Do an initial scan to find all the 
+// Quadratic implementation. Either Quadtree or Lattice will be optimal
 const loadBondInstances = (states) => {
 
 	// system tree container
@@ -56882,6 +56847,7 @@ const loadBondInstances = (states) => {
 	const bondGeometry = new CylinderGeometry(0.01, 0.01, 1, 8);
 	const bondMaterial = new MeshStandardMaterial({ color: 0xaaaaaa })
 	cylinders 		   = new InstancedMesh(bondGeometry, bondMaterial, numBonds);
+
 	// Helper objects for positioning and rotating
 	const bondMatrix = new Matrix4();
 	const bondVector = new Vector3();
@@ -56942,31 +56908,22 @@ const loadBondInstances = (states) => {
 		}
 	}
 	cylinders.count = bondIndex;
-	console.log(cylinders);
 	scene.add(cylinders);
 };
 
-const updateSpheres = (coordinates) => {
-  for (const key in coordinates) {
-    spheres[Number(key)].position.set( coordinates[key].x, coordinates[key].y, coordinates[key].z );
-  }
+const loadSeqInfo = (seqInfo) => {
+	let seqString = "";
+	for (const cID in seqInfo.c) {
+		seqString += (seqInfo.id + "_" + cID).padEnd(12, " ") + seqInfo.c[cID] + "\n";
+	}
+	console.log(seqString);
+	document.getElementById("sequence").innerHTML = seqString;
+	document.querySelectorAll('#sequence').forEach(function(v, i, a) {v.classList.add('show'); v.classList.remove('hide')})
+
 };
 
-const updateLines = (obj) => {
-  for (const pair in obj.distances) {
-    const parsedPair     = pair.split( ',' ).map( v => { return Number(v) } );
-    const points         = [obj.coordinates[parsedPair[0]], obj.coordinates[parsedPair[1]]];
-    lines[pair].geometry = new BufferGeometry().setFromPoints(points);
-  }
-};
-
-// General PDB file parser, returns hierarchy: state -> chain -> residue -> atoms
-
-
-
-// ------------------------ THREE.JS SETUP ------------------------
+// ------------------------ THREE.JS INITIALIZATIONS ------------------------
 const canvas       = document.querySelector('#bg');
-const clock        = new Clock();
 const renderer     = new WebGLRenderer({ canvas: canvas });
 const scene        = new Scene();
 const gridHelper   = new GridHelper(40, 40, 0x0000FF, 0x0000FF);
@@ -56985,6 +56942,7 @@ camera.position.set( 1, 1, 1 );
 // ----------------------------------------------------------------
 
 
+
 // -------------------- MOUSE-ATOM INTERACTION --------------------
 var mouse, scroll_ctr, y_start;
 var dragObject     = null;
@@ -56996,49 +56954,44 @@ var pointIntersect = new Vector3(); // point of intersection with an object (pla
 var shift          = new Vector3(); // distance between position of an object and points of intersection with the object
 const plane_normal = new Vector3( 0, 1, 0 ); // plane's normal
 
-// document.addEventListener('pointerdown', function(e) {
-//   var intersects = raycaster.intersectObjects( scene.children );
-  
-//   scroll_ctr = 0;
-//   for ( let i = 0; i < intersects.length; i++ ) {
-//     if (intersects[i].object.type == "Mesh") {
-//       controller.Disable()
-//       pointIntersect.copy(intersects[i].point);
-//       plane.setFromNormalAndCoplanarPoint(plane_normal, pointIntersect);
-//       shift.subVectors(intersects[i].object.position, intersects[i].point);
-//       dragObject = intersects[i].object;
-//       y_start = dragObject.position.y;
-//       break;
-//     }
-//   }
-// });
+document.addEventListener('pointerdown', function(e) {
 
-// document.addEventListener('wheel', e => {
-//   if (dragObject != null) {
-//     dragObject.position.y += scroll_rate*(Number(e.deltaY > 0)*2-1);
-//     scroll_ctr += (Number(e.deltaY > 0)*2-1);
-//   }
-// });
-// document.addEventListener("pointermove", e => {
-//   mouse = new Vector2( ( e.clientX / window.innerWidth ) * 2 - 1, -( e.clientY / window.innerHeight ) * 2 + 1 );
-//   raycaster.setFromCamera(mouse, camera);
-//   if (dragObject) {
-//     raycaster.ray.intersectPlane(plane, planeIntersect);
-//     dragObject.position.addVectors(planeIntersect, shift);
-//     dragObject.position.y = y_start + scroll_rate*scroll_ctr
-//   }
-// });
-// document.addEventListener("pointerup", () => {
-// 	dragObject = null; controller.Enable()
-// });
+	var intersects = raycaster.intersectObjects( scene.children );
+	
+	scroll_ctr = 0;
+	for ( let i = 0; i < intersects.length; i++ ) {
+		if (intersects[i].object.type == "Mesh") {
+			controller.Disable()
+			pointIntersect.copy(intersects[i].point);
+			plane.setFromNormalAndCoplanarPoint(plane_normal, pointIntersect);
+			shift.subVectors(intersects[i].object.position, intersects[i].point);
+			dragObject = intersects[i].object;
+			y_start = dragObject.position.y;
+			break;
+		}
+	}
+});
+
+document.addEventListener('wheel', e => {
+  if (dragObject != null) {
+    dragObject.position.y += scroll_rate*(Number(e.deltaY > 0)*2-1);
+    scroll_ctr += (Number(e.deltaY > 0)*2-1);
+  }
+});
+document.addEventListener("pointermove", e => {
+  mouse = new Vector2( ( e.clientX / window.innerWidth ) * 2 - 1, -( e.clientY / window.innerHeight ) * 2 + 1 );
+  raycaster.setFromCamera(mouse, camera);
+  if (dragObject) {
+    raycaster.ray.intersectPlane(plane, planeIntersect);
+    dragObject.position.addVectors(planeIntersect, shift);
+    dragObject.position.y = y_start + scroll_rate*scroll_ctr
+  }
+});
+document.addEventListener("pointerup", () => {
+	dragObject = null; controller.Enable()
+});
 // ----------------------------------------------------------------
 
-
-// const updateObject = (object, spheres) => {
-//   for ( const key in object.coordinates ) {
-//     object.coordinates[Number(key)] = spheres[Number(key)].position;
-//   }
-// }
 
 const updateFPS = (fps) => { document.getElementById('fps').innerText = "FPS: ".concat(String(fps)) };
 
@@ -57078,13 +57031,22 @@ const animate = () => {
 // });
 
 // 
-
 // ---------------- [ADD -> SYSTEM] IMPLEMENTATION ----------------
-function parsePDB(lines) {
 
-	const hierarchy  = {s: {0:{atomCount: 0, c: {}}}}; // Hierarchical object: state -> chain -> residue -> atoms (hierarchy[0] is the case for single state)
+// General PDB file parser, returns hierarchy: state -> chain -> residue -> atoms
+function parsePDB(lines) {
+ 	
+	// positional information
+	const center = new Vector3(0, 0, 0);
+	var seqInfo  = {c: {}};
+	
+
+	// Hierarchical object: state -> chain -> residue -> atoms (hierarchy[0] is the case for single state)
+	const hierarchy  = {s: {0:{atomCount: 0, c: {}}}};
+	
 	let currentState = null;   // Current MODEL number
-	let atomCounter = 1; // Consider this being replaced by atomSerial...
+	let atomCounter  = 0; // Consider this being replaced by atomSerial...
+	let prevResSeq   = 0;
 
 	for (const line of lines) {
 		const recordType = line.slice(0, 6).trim();
@@ -57093,12 +57055,13 @@ function parsePDB(lines) {
 			// Start a new state
 			currentState = parseInt(line.slice(10, 14).trim(), 10);
 			if (!hierarchy.s[currentState]) hierarchy.s[currentState] = {atomCount: 0, c: {}};
-
 		} 
 		else if (recordType === "ENDMDL") {
 			// End of current state
 			currentState = null;
-
+		}
+		else if (recordType === "HEADER") {
+			seqInfo.id = line.split("  ").filter(i => i).slice(-1);
 		}
 		else if (recordType === "ATOM" || recordType === "HETATM") {
 			// Parse atom data
@@ -57111,46 +57074,79 @@ function parsePDB(lines) {
 			const x          = parseFloat(line.slice(30, 38).trim());
 			const y          = parseFloat(line.slice(38, 46).trim());
 			const z          = parseFloat(line.slice(46, 54).trim());
-			const atomType   = line.substring(76, 78).trim(); // Atom type -- needs to handle non-canonical atom naming here?
+			const atomType   = line.substring(76, 78).trim();
 
 			const sID = ((currentState !== null) ? currentState : 0);
 
-			if (!hierarchy.s[sID].c[cID]) {hierarchy.s[sID].c[cID] = {atomCount: 0, r: {}};}
+			if (!hierarchy.s[sID].c[cID]) {
+				hierarchy.s[sID].c[cID] = {atomCount: 0, r: {}};
+				if (!seqInfo.c[cID]) seqInfo.c[cID] = "";
+			}
 
 
 			// Set residue key (initialize as necessary)
 			const rID = `${resSeq}${iCode}`;
-			if (!hierarchy.s[sID].c[cID].r[rID]) hierarchy.s[sID].c[cID].r[rID] = {atomCount: 0, residueName: resName, a: {}};
+			if (!hierarchy.s[sID].c[cID].r[rID]) {
+				hierarchy.s[sID].c[cID].r[rID] = {atomCount: 0, residueName: resName, a: {}};
+				if (prevResSeq != resSeq && resName !== "HOH") {
+					seqInfo.c[cID] += resName;
+					prevResSeq = resSeq;
+				}
+			}
 
 			// Add atom to residue
 			hierarchy.s[sID].c[cID].r[rID].a[atomSerial] = {
-				number: atomCounter++,
+				number: ++atomCounter,
 				serial: atomSerial,
 				name  : atomName,
 				type  : atomType,
 				pos   : new Vector3(x, y, z).divideScalar(10) // angstroms to nanometers
 			};
-
+			center.add(hierarchy.s[sID].c[cID].r[rID].a[atomSerial].pos);
 			// update atom counts
 			hierarchy.s[sID].atomCount++;
 			hierarchy.s[sID].c[cID].atomCount++;
 			hierarchy.s[sID].c[cID].r[rID].atomCount++;
 		}
 	}
-	return hierarchy;
+
+	// Centering atoms
+	center.divideScalar(atomCounter)
+
+	for (const sID in hierarchy.s) {
+		const state = hierarchy.s[sID];
+		
+		for (const cID in state.c) {
+			const chain = state.c[cID];
+
+			for (const rID in chain.r) {
+				const resid = chain.r[rID];
+
+				for (const aID in resid.a) {
+					resid.a[aID].pos.sub(center);
+				}
+			}
+		}
+	}
+	return [hierarchy, seqInfo];
 }
+
+// browsing pdb file
 document.getElementById('browse-pdb').onchange = function() {
 	const CoM 	  = new Vector3(0, 0, 0);
 	const file    = this.files[this.files.length-1];
 	const reader  = new FileReader(); reader.readAsText(file);
+	var seqInfo;
 	reader.onload = function() {
-		const text   = this.result;
-		const lines  = text.split('\n');
-		SCRA = parsePDB(lines);
+		const text  = this.result;
+		const lines = text.split('\n');
+		[SCRA, seqInfo] = parsePDB(lines);
 		document.getElementById('browse-pdb').value = "";
 		// Handling single vs multi-state files
+		loadSeqInfo(seqInfo);
 		loadAtomInstances(SCRA, ((Object.keys(SCRA.s).length > 1) ? [1]: [0]));
 		loadBondInstances(((Object.keys(SCRA.s).length > 1) ? [1]: [0]));
+		
 	};
 };
 // ----------------------------------------------------------------
@@ -57264,16 +57260,16 @@ document.getElementById('value-slider').onchange = function(e) {
 
 // -------------------- [CLEAR] IMPLEMENTATION --------------------
 document.getElementById('clear').onclick = function	() {
-	if (spheres.length > 0) {
-		spheres.forEach(function( v, i, a ) { scene.remove(v) });
-	}
-	if (Object.keys(cylinders).length > 0) {
-		Object.keys(cylinders).forEach(function( v, i, a ) { scene.remove(cylinders[v]) }); // instancedMesh updating not done
-	}
+	// if (spheres.length > 0) {
+	// 	spheres.forEach(function( v, i, a ) { scene.remove(v) });
+	// }
+	// if (Object.keys(cylinders).length > 0) {
+	// 	Object.keys(cylinders).forEach(function( v, i, a ) { scene.remove(cylinders[v]) }); // instancedMesh updating not done
+	// }
 	scene.remove(spheres);
 	scene.remove(cylinders);
-	spheres   = []; atoms = [];
-	cylinders = []; bonds_index = {}; index_bonds = []; connectivity = {};
+	spheres   = [];
+	cylinders = []; connectivity = {};
 	renderer.render( scene, camera );
 };
 // ----------------------------------------------------------------
