@@ -56768,6 +56768,30 @@ const atomic_models = {
     "OG" : { 'z': 118, "radius": 0.400, "color": 0x000000 },
 };
 
+// contains IDs in a 3D lattice for accession
+class Lattice {
+
+	constructor(x, y, z, unitLength, minDims, maxDims) {
+
+		this.xyz	    = Array.from({ length: x }, () => Array.from({ length: y }, () => Array.from({ length: z }, () => [])));
+		this.unitLength = unitLength;
+		this.minDims 	= minDims;
+		this.maxDims 	= maxDims;
+		console.log(minDims);
+
+	};
+
+	set = (pos, value) => {
+
+		let cells = new Vector3().copy(pos).sub(this.minDims).divideScalar(this.unitLength).floor();
+		// console.log(cells, pos);
+		this.xyz[ cells.x ][ cells.y ][ cells.z ].push(value);
+
+	};
+
+	get = (x, y, z) => {return this.xyz[x][y][z]};
+};
+
 // ------------------- system storage objects ---------------------
 var SCRA        = {}; // states --> chains -> residues -> atoms
 var spheres     = [];
@@ -56776,16 +56800,37 @@ var bonds_index = {};
 var index_bonds = [];
 var cylinders   = [];
 
+var minDims;
+var maxDims;
+var latticeXYZ;
+
 var connectivity = {};
 // ----------------------------------------------------------------
-
+const atomSCRA = (key) => {
+	// key will be split by space
+	keySplit = key.split(" ")
+	return SCRA.s[key[0]].c[key[1]].r[key[2]].a[key[3]];
+}
 
 // Uses SCRA
 const loadAtomInstances = (SCRA, states) => {
+
+	// building the lattice
+	let unitCells = new Vector3().copy(maxDims).sub(minDims).divideScalar(0.4).ceil();
+	latticeXYZ = new Lattice(
+		unitCells.x,
+		unitCells.y, 
+		unitCells.z,
+		0.4,
+		minDims,
+		maxDims
+	);
+
 	let count = 0;
 	for (const sID of states) {
 		count += SCRA.s[sID].atomCount;
 	}
+
 	// Initializing InstancedMesh
 	const atomGeometry = new SphereGeometry(0.2, 18, 18);
 	const atomMaterial = new MeshStandardMaterial({ color: 0x888888 });
@@ -56811,7 +56856,6 @@ const loadAtomInstances = (SCRA, states) => {
 					color.set(atomic_models[atom.type]["color"]);
 					let radius = atomic_models[atom.type]["radius"];
 					let pos    = atom.pos;
-
 					// reset the matrix
 					matrix.identity();
 
@@ -56822,6 +56866,9 @@ const loadAtomInstances = (SCRA, states) => {
 					// set matrix and color in InstancedMesh
 					spheres.setMatrixAt(i, matrix);
 					spheres.setColorAt (i, color);
+
+					let atomKey = [sID, cID, rID, aID].join(" ");
+					latticeXYZ.set(pos, atomKey);
 
 					i++;
 				}
@@ -56910,6 +56957,85 @@ const loadBondInstances = (states) => {
 	cylinders.count = bondIndex;
 	scene.add(cylinders);
 };
+// Quadratic implementation. Either Quadtree or Lattice will be optimal
+// const loadBondInstances = (states) => {
+
+// // system tree container
+// connectivity = {};
+
+// // approximate bond count
+// let numAtoms = 0;
+// for (const sID of states) numAtoms += SCRA.s[sID].atomCount;
+// let numBonds = numAtoms*3;
+
+// // initializing InstancedMesh
+// const bondGeometry = new CylinderGeometry(0.01, 0.01, 1, 8);
+// const bondMaterial = new MeshStandardMaterial({ color: 0xaaaaaa })
+// cylinders 		   = new InstancedMesh(bondGeometry, bondMaterial, numBonds);
+
+// // Helper objects for positioning and rotating
+// const bondMatrix = new Matrix4();
+// const bondVector = new Vector3();
+// const threshold  = 0.05;
+
+// // SCRA tree quadratic comparison O(n*n) -> eventually will become lattice search O(4.5*n)
+// let bondIndex = 0;
+// for (const sID of states) {
+// 	const state = SCRA.s[sID];
+	
+// 	for (const cID_i in state.c) {
+// 		const chain_i = state.c[cID_i];
+
+// 		for (const rID_i in chain_i.r) {
+// 			const resid_i = chain_i.r[rID_i];
+
+// 			for (const aID_i in resid_i.a) {
+// 				const atom_i  = resid_i.a[aID_i];
+// 				const i_key = `${sID},${cID_i},${rID_i},${aID_i}`;
+
+// 				connectivity[i_key] = [];
+
+// 				for (const cID_j in state.c) {
+// 					const chain_j = state.c[cID_j];
+
+// 					for (const rID_j in chain_j.r) {
+// 						const resid_j = chain_j.r[rID_j];
+
+// 						for (const aID_j in resid_j.a) {
+// 							const atom_j  = resid_j.a[aID_j];
+							
+// 							if (atom_i.number === atom_j.number) continue;
+// 							const pointA   = atom_i.pos;
+// 							const pointB   = atom_j.pos;
+// 							const ideal    = 0.5 * ((atomic_models[atom_i.type]["radius"]) + (atomic_models[atom_j.type]["radius"]));
+// 							const distance = pointA.distanceTo(pointB);
+							
+// 							if (Math.abs(ideal-distance) > threshold) continue;
+// 							const j_key = `${sID},${cID_j},${rID_j},${aID_j}`;
+
+// 							connectivity[i_key].push(j_key);
+
+// 							bondVector.copy(pointB).sub(pointA);
+// 							const bondLength   = bondVector.length();
+// 							const bondMidPoint = pointA.clone().addScaledVector(bondVector, 0.5);
+// 							bondMatrix.identity();
+// 							bondMatrix.lookAt(pointA, pointB, new Vector3(0, 1, 0));
+// 							bondMatrix.multiply(new Matrix4().makeRotationX(Math.PI / 2));
+// 							bondMatrix.setPosition(bondMidPoint);
+// 							bondMatrix.scale(new Vector3(1, bondLength, 1));
+// 							cylinders.setMatrixAt(bondIndex, bondMatrix);
+// 							bondIndex++;
+// 						}
+// 					}
+// 				}
+// 			}
+// 		}
+// 	}
+// }
+// cylinders.count = bondIndex;
+// scene.add(cylinders);
+// };
+
 
 const loadSeqInfo = (seqInfo) => {
 	let seqString = "";
@@ -56926,12 +57052,12 @@ const loadSeqInfo = (seqInfo) => {
 const canvas       = document.querySelector('#bg');
 const renderer     = new WebGLRenderer({ canvas: canvas });
 const scene        = new Scene();
-const gridHelper   = new GridHelper(40, 40, 0x0000FF, 0x0000FF);
+const gridHelper   = new GridHelper(40, 40, 0x000000, 0x000000);
 const pointLight   = new PointLight( 0xFFFFFF, 10, 1000, 0.0001 );
 const ambientLight = new AmbientLight( 0xFFFFFF );
 const camera       = new PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 500 );
 const controller   = new CameraController(camera, renderer.domElement);
-scene.background   = new Color( 0x363636 );
+scene.background   = new Color( 0xFFFFFF );
 scene.fog          = new Fog( 0xFFFFFFF, 10, 200 ); // fog depth will eventually be scrollable? with a key input (mousewheel), have button to toggle between mouse and keypad
 
 pointLight.position.set( 0, 10, 0 );
@@ -57035,18 +57161,32 @@ const animate = () => {
 
 // General PDB file parser, returns hierarchy: state -> chain -> residue -> atoms
 function parsePDB(lines) {
- 	
+	const aminoAcidMap = {
+		ALA: "A", ARG: "R", ASN: "N", ASP: "D", CYS: "C",
+		GLN: "Q", GLU: "E", GLY: "G", HIS: "H", ILE: "I",
+		LEU: "L", LYS: "K", MET: "M", PHE: "F", PRO: "P",
+		SER: "S", THR: "T", TRP: "W", TYR: "Y", VAL: "V",
+		ASX: "B", // Aspartic Acid or Asparagine
+		GLX: "Z", // Glutamic Acid or Glutamine
+		SEC: "U", // Selenocysteine
+		PYR: "O", // Pyrrolysine
+		XLE: "J", // Leucine or Isoleucine
+		// Add non-standard residues if needed, or use "X" for unknown residues
+		UNK: "X"  // Unknown residue
+	};
+
 	// positional information
 	const center = new Vector3(0, 0, 0);
+	const minDims = new Vector3(Infinity, Infinity, Infinity);
+	const maxDims = new Vector3(-Infinity, -Infinity, -Infinity);
 	var seqInfo  = {c: {}};
 	
-
 	// Hierarchical object: state -> chain -> residue -> atoms (hierarchy[0] is the case for single state)
-	const hierarchy  = {s: {0:{atomCount: 0, c: {}}}};
+	const hierarchy   = {s: {0:{atomCount: 0, c: {}}}};
 	
 	let currentState = null;   // Current MODEL number
 	let atomCounter  = 0; // Consider this being replaced by atomSerial...
-	let prevResSeq   = 0;
+	let prevRID   = 0;
 
 	for (const line of lines) {
 		const recordType = line.slice(0, 6).trim();
@@ -57071,9 +57211,9 @@ function parsePDB(lines) {
 			const cID        = line.slice(21, 22).trim();
 			const resSeq     = parseInt(line.slice(22, 26).trim(), 10);
 			const iCode      = line.slice(26, 27).trim(); // Optional insertion code
-			const x          = parseFloat(line.slice(30, 38).trim());
-			const y          = parseFloat(line.slice(38, 46).trim());
-			const z          = parseFloat(line.slice(46, 54).trim());
+			const x          = parseFloat(line.slice(30, 38).trim())/10; // angstrom to nanometer
+			const y          = parseFloat(line.slice(38, 46).trim())/10; // angstrom to nanometer
+			const z          = parseFloat(line.slice(46, 54).trim())/10; // angstrom to nanometer
 			const atomType   = line.substring(76, 78).trim();
 
 			const sID = ((currentState !== null) ? currentState : 0);
@@ -57085,12 +57225,12 @@ function parsePDB(lines) {
 
 
 			// Set residue key (initialize as necessary)
-			const rID = `${resSeq}${iCode}`;
+			const rID = `${resName}${resSeq}`;
 			if (!hierarchy.s[sID].c[cID].r[rID]) {
 				hierarchy.s[sID].c[cID].r[rID] = {atomCount: 0, residueName: resName, a: {}};
-				if (prevResSeq != resSeq && resName !== "HOH") {
-					seqInfo.c[cID] += resName;
-					prevResSeq = resSeq;
+				if (prevRID != rID && resName !== "HOH") {
+					seqInfo.c[cID] += aminoAcidMap[resName];
+					prevRID = rID;
 				}
 			}
 
@@ -57100,16 +57240,17 @@ function parsePDB(lines) {
 				serial: atomSerial,
 				name  : atomName,
 				type  : atomType,
-				pos   : new Vector3(x, y, z).divideScalar(10) // angstroms to nanometers
+				pos   : new Vector3(x, y, z)// nanometers
 			};
 			center.add(hierarchy.s[sID].c[cID].r[rID].a[atomSerial].pos);
+
 			// update atom counts
 			hierarchy.s[sID].atomCount++;
 			hierarchy.s[sID].c[cID].atomCount++;
 			hierarchy.s[sID].c[cID].r[rID].atomCount++;
 		}
 	}
-
+	
 	// Centering atoms
 	center.divideScalar(atomCounter)
 
@@ -57123,12 +57264,21 @@ function parsePDB(lines) {
 				const resid = chain.r[rID];
 
 				for (const aID in resid.a) {
+
 					resid.a[aID].pos.sub(center);
+
+					if (minDims.x > resid.a[aID].pos.x) minDims.x = resid.a[aID].pos.x;
+					if (minDims.y > resid.a[aID].pos.y) minDims.y = resid.a[aID].pos.y;
+					if (minDims.z > resid.a[aID].pos.z) minDims.z = resid.a[aID].pos.z;
+
+					if (maxDims.x < resid.a[aID].pos.x) maxDims.x = resid.a[aID].pos.x;
+					if (maxDims.y < resid.a[aID].pos.y) maxDims.y = resid.a[aID].pos.y;
+					if (maxDims.z < resid.a[aID].pos.z) maxDims.z = resid.a[aID].pos.z;
 				}
 			}
 		}
 	}
-	return [hierarchy, seqInfo];
+	return [hierarchy, seqInfo, minDims, maxDims];
 }
 
 // browsing pdb file
@@ -57140,13 +57290,12 @@ document.getElementById('browse-pdb').onchange = function() {
 	reader.onload = function() {
 		const text  = this.result;
 		const lines = text.split('\n');
-		[SCRA, seqInfo] = parsePDB(lines);
+		[SCRA, seqInfo, minDims, maxDims] = parsePDB(lines);
 		document.getElementById('browse-pdb').value = "";
 		// Handling single vs multi-state files
 		loadSeqInfo(seqInfo);
 		loadAtomInstances(SCRA, ((Object.keys(SCRA.s).length > 1) ? [1]: [0]));
-		loadBondInstances(((Object.keys(SCRA.s).length > 1) ? [1]: [0]));
-		
+		// loadBondInstances(((Object.keys(SCRA.s).length > 1) ? [1]: [0]));
 	};
 };
 // ----------------------------------------------------------------
@@ -57260,12 +57409,6 @@ document.getElementById('value-slider').onchange = function(e) {
 
 // -------------------- [CLEAR] IMPLEMENTATION --------------------
 document.getElementById('clear').onclick = function	() {
-	// if (spheres.length > 0) {
-	// 	spheres.forEach(function( v, i, a ) { scene.remove(v) });
-	// }
-	// if (Object.keys(cylinders).length > 0) {
-	// 	Object.keys(cylinders).forEach(function( v, i, a ) { scene.remove(cylinders[v]) }); // instancedMesh updating not done
-	// }
 	scene.remove(spheres);
 	scene.remove(cylinders);
 	spheres   = [];
