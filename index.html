@@ -57123,16 +57123,15 @@ const pointLight   = new PointLight( 0xFFFFFF, 10, 1000, 0.0001 );
 const ambientLight = new AmbientLight( 0xFFFFFF );
 const camera       = new PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 500 );
 const controller   = new CameraController(camera, renderer.domElement);
-scene.background   = new Color( 0xFFFFFF );
+scene.background   = new Color( 0x000000 );
 scene.fog          = new Fog( 0xFFFFFFF, 10, 200 ); // fog depth will eventually be scrollable? with a key input (mousewheel), have button to toggle between mouse and keypad
 
 pointLight.position.set( 0, 10, 0 );
-scene.add(pointLight, ambientLight, gridHelper);
+scene.add(pointLight, ambientLight);
 renderer.setPixelRatio( window.devicePixelRatio );
 renderer.setSize( window.innerWidth, window.innerHeight );
 camera.position.set( 1, 1, 1 );
 // ----------------------------------------------------------------
-
 
 
 // -------------------- MOUSE-ATOM INTERACTION --------------------
