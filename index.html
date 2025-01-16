@@ -56936,7 +56936,6 @@ const loadBondInstances = (states) => {
 					let nbrCell  = new Vector3().copy(cell).add(additives[i]);
 
 					if (!lattice.isBounded(nbrCell)) continue;
-
 					let nbrAtoms = lattice.get(nbrCell);
 
 					for (const b of nbrAtoms) {
@@ -56969,58 +56968,6 @@ const loadBondInstances = (states) => {
 				visited[a] = true;
 			}
 		}
-		console.log(visited);
-		// break;
-
-
-		// for (const cID_i in state.c) {
-		// 	const chain_i = state.c[cID_i];
-
-		// 	for (const rID_i in chain_i.r) {
-		// 		const resid_i = chain_i.r[rID_i];
-
-		// 		for (const aID_i in resid_i.a) {
-		// 			const atom_i  = resid_i.a[aID_i];
-		// 			const i_key = `${sID},${cID_i},${rID_i},${aID_i}`;
-
-		// 			connectivity[i_key] = [];
-
-		// 			for (const cID_j in state.c) {
-		// 				const chain_j = state.c[cID_j];
-
-		// 				for (const rID_j in chain_j.r) {
-		// 					const resid_j = chain_j.r[rID_j];
-
-		// 					for (const aID_j in resid_j.a) {
-		// 						const atom_j  = resid_j.a[aID_j];
-								
-		// 						if (atom_i.number === atom_j.number) continue;
-		// 						const pointA   = atom_i.pos;
-		// 						const pointB   = atom_j.pos;
-		// 						const ideal    = 0.5 * ((atomic_models[atom_i.type]["radius"]) + (atomic_models[atom_j.type]["radius"]));
-		// 						const distance = pointA.distanceTo(pointB);
-								
-		// 						if (Math.abs(ideal-distance) > threshold) continue;
-		// 						const j_key = `${sID},${cID_j},${rID_j},${aID_j}`;
-
-		// 						connectivity[i_key].push(j_key);
-
-		// 						bondVector.copy(pointB).sub(pointA);
-		// 						const bondLength   = bondVector.length();
-		// 						const bondMidPoint = pointA.clone().addScaledVector(bondVector, 0.5);
-		// 						bondMatrix.identity();
-		// 						bondMatrix.lookAt(pointA, pointB, new Vector3(0, 1, 0));
-		// 						bondMatrix.multiply(new Matrix4().makeRotationX(Math.PI / 2));
-		// 						bondMatrix.setPosition(bondMidPoint);
-		// 						bondMatrix.scale(new Vector3(1, bondLength, 1));
-		// 						cylinders.setMatrixAt(bondIndex, bondMatrix);
-		// 						bondIndex++;
-		// 					}
-		// 				}
-		// 			}
-		// 		}
-		// 	}
-		// }
 	}
 	cylinders.count = bondIndex;
 	scene.add(cylinders);
@@ -57123,7 +57070,7 @@ const pointLight   = new PointLight( 0xFFFFFF, 10, 1000, 0.0001 );
 const ambientLight = new AmbientLight( 0xFFFFFF );
 const camera       = new PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 500 );
 const controller   = new CameraController(camera, renderer.domElement);
-scene.background   = new Color( 0x000000 );
+scene.background   = new Color( 0xFFFFFFF );
 scene.fog          = new Fog( 0xFFFFFFF, 10, 200 ); // fog depth will eventually be scrollable? with a key input (mousewheel), have button to toggle between mouse and keypad
 
 pointLight.position.set( 0, 10, 0 );
@@ -57346,6 +57293,32 @@ function parsePDB(lines) {
 	return [hierarchy, seqInfo, minDims, maxDims];
 }
 
+const drawLattice = (lattice) => {
+	const unitCellSize = lattice.unitLength; // Size of each unit cell
+	const latticeDimensions = new Vector3().copy(lattice.maxDims).sub(lattice.minDims).divideScalar(lattice.unitLength).ceil(); // Number of cells in x, y, z
+	console.log(latticeDimensions);
+
+	const material = new LineBasicMaterial({ color: 0xFF0000 });
+	for (let x = 0; x < latticeDimensions.x; x++) {
+		for (let y = 0; y < latticeDimensions.y; y++) {
+			for (let z = 0; z < latticeDimensions.z; z++) {
+				const geometry = new BoxGeometry(unitCellSize, unitCellSize, unitCellSize);
+				const edges = new EdgesGeometry(geometry);
+				const wireframe = new LineSegments(edges, material);
+
+				// Position each cell
+				wireframe.position.set(
+					x * unitCellSize + lattice.minDims.x,
+					y * unitCellSize + lattice.minDims.y,
+					z * unitCellSize + lattice.minDims.z
+				);
+				scene.add(wireframe);
+			}
+		}
+	}
+
+}
+
 // browsing pdb file
 document.getElementById('browse-pdb').onchange = function() {
 	const CoM 	  = new Vector3(0, 0, 0);
@@ -57361,6 +57334,7 @@ document.getElementById('browse-pdb').onchange = function() {
 		loadSeqInfo(seqInfo);
 		loadAtomInstances(SCRA, ((Object.keys(SCRA.s).length > 1) ? [1]: [0]));
 		loadBondInstances(((Object.keys(SCRA.s).length > 1) ? [1]: [0]));
+		drawLattice(lattice);
 	};
 };
 // ----------------------------------------------------------------
