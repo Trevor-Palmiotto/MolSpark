@@ -496,7 +496,7 @@
             </div>
 
 			<!-- SEQUENCE WINDOW -->
-			<div class="menu-item" style="width: 60%;">
+			<div class="menu-item hide" style="width: 60%;">
 				<button id="sequence"></button>
 			</div>
 
@@ -56781,10 +56781,8 @@ class Lattice {
 	};
 
 	set = (pos, value) => {
-
-		let cells = this.pos2Cell(pos);
-		this.xyz[ cells.x ][ cells.y ][ cells.z ].push(value);
-
+		let cell = this.pos2Cell(pos);
+		this.xyz[ cell.x ][ cell.y ][ cell.z ].push(value);
 	};
 
 	get = (cell) => {return this.xyz[cell.x][cell.y][cell.z]};
@@ -56807,6 +56805,8 @@ var minDims;
 var maxDims;
 var lattice;
 var connections = {};
+
+var unitCells;
 // ----------------------------------------------------------------
 const atomSCRA = (key) => {
 	// key will be split by space
@@ -56903,49 +56903,66 @@ const loadBondInstances = (states) => {
 	const bondVector = new Vector3();
 	const threshold  = 0.05;
 
+	// I don't know why I did it like this
 	const additives  = [
-		new Vector3(0, 0, 0),
-		new Vector3(0, 0, 1),
-		new Vector3(0, 1, 0),
-		new Vector3(1, 0, 0),
-		new Vector3(0, 1, 1),
-		new Vector3(1, 1, 0),
-		new Vector3(1, 0, 1),
-		new Vector3(1, 1, 1)
+		new Vector3(-1, 1,-1), new Vector3(-1, 1, 0), new Vector3(-1, 1, 1),
+		new Vector3( 0, 1,-1), new Vector3( 0, 1, 0), new Vector3( 0, 1, 1),
+		new Vector3( 1, 1,-1), new Vector3( 1, 1, 0), new Vector3( 1, 1, 1),
+		new Vector3(-1, 0,-1), new Vector3(-1, 0, 0), new Vector3(-1, 0, 1),
+		new Vector3( 0, 0,-1), new Vector3( 0, 0, 0), new Vector3( 0, 0, 1),
+		new Vector3( 1, 0,-1), new Vector3( 1, 0, 0), new Vector3( 1, 0, 1),
+		new Vector3(-1,-1,-1), new Vector3(-1,-1, 0), new Vector3(-1,-1, 1),
+		new Vector3( 0,-1,-1), new Vector3( 0,-1, 0), new Vector3( 0,-1, 1),
+		new Vector3( 1,-1,-1), new Vector3( 1,-1, 0), new Vector3( 1,-1, 1)
 	];
 
-	let visited   = {}
-	let bondIndex = 0;
+	let visitedAtoms = {};
+	let visitedCells = {};
+	let bondIndex    = 0;
 
+	let totalAtomInteractions = 0;
+
+	let totalCellInteractions = 0;
+	let totalCells = 0;
 	for (const sID of states) { // eventually we will need a new cylinders InstancedMesh for each state
+		
 		const state = SCRA.s[sID];
 		
-		for (const atomKey of flAtoms) { // this doesn't consider state...
+		for (const atomKey of flAtoms) { // this doesn't consider state, but also this could have been done by unit cells not sequence - is this approach faster?
 
-			if ((atomKey in visited)) continue;
+			if (atomKey in visitedAtoms) continue;
 
-			let pos  = atomSCRA(atomKey).pos;
-			let cell = lattice.pos2Cell(pos);
+			let pos    = atomSCRA(atomKey).pos;
+			let cell   = lattice.pos2Cell(pos);
+			let cellID = [cell.x, cell.y, cell.z].join(",")
 
-			let cellAtoms = lattice.get(cell)
+			if (cellID in visitedCells) {console.log("shit"); continue}
 
+			let cellAtoms = lattice.get(cell);
+			totalCells++;
+			let cellITer = 0;
 			for (const a of cellAtoms) {
+
+				const atomA	   = atomSCRA(a);
+				const pointA   = atomA.pos;
+
 				let i = 0;
+				for (let i = 0; i < additives.length; i++) {
 
-				for (let i = 0; i < 8; i++) {
-					let nbrCell  = new Vector3().copy(cell).add(additives[i]);
+					let nbrCell   = new Vector3().copy(cell).add(additives[i]);
+					let nbrCellID = [nbrCell.x, nbrCell.y, nbrCell.z].join(",");
 
-					if (!lattice.isBounded(nbrCell)) continue;
+					if (!lattice.isBounded(nbrCell) || nbrCellID in visitedCells) continue;
+					if (cellITer === 0) totalCellInteractions++;
+
 					let nbrAtoms = lattice.get(nbrCell);
 
 					for (const b of nbrAtoms) {
 
-						let atomA = atomSCRA(a);
-						let atomB = atomSCRA(b);
+						const atomB = atomSCRA(b);
 
 						if (atomA.number === atomB.number || (atomA+atomB) in connections) continue;
-
-						const pointA   = atomA.pos;
+						if (cellITer === 0) totalAtomInteractions++;
 						const pointB   = atomB.pos;
 						const ideal    = 0.5 * ((atomic_models[atomA.type]["radius"]) + (atomic_models[atomB.type]["radius"]));
 						const distance = pointA.distanceTo(pointB);
@@ -56964,98 +56981,28 @@ const loadBondInstances = (states) => {
 						bondIndex++;
 					}
 				}
-
-				visited[a] = true;
+				cellITer++;
+				visitedAtoms[a] = true;
 			}
+			visitedCells[cellID] = true;
 		}
 	}
+	console.log("Total Atoms:", flAtoms.length);
+	console.log("Total Unit Cells:", totalCells);
+	console.log("Neighboring Atoms per Unit Cell:", totalAtomInteractions/totalCells);
+	console.log("Neighboring Unit Cells per Unit Cell:", totalCellInteractions/totalCells);
+	console.log("Average Atoms per Unit Cell:", flAtoms.length/totalCells);
 	cylinders.count = bondIndex;
+	console.log(lattice.xyz);
 	scene.add(cylinders);
 };
 
-// Quadratic implementation. Either Quadtree or Lattice will be optimal
-// const loadBondInstances = (states) => {
-
-// // system tree container
-
-// // approximate bond count
-// let numAtoms = 0;
-// for (const sID of states) numAtoms += SCRA.s[sID].atomCount;
-// let numBonds = numAtoms*3;
-
-// // initializing InstancedMesh
-// const bondGeometry = new CylinderGeometry(0.01, 0.01, 1, 8);
-// const bondMaterial = new MeshStandardMaterial({ color: 0xaaaaaa })
-// cylinders 		   = new InstancedMesh(bondGeometry, bondMaterial, numBonds);
-
-// // Helper objects for positioning and rotating
-// const bondMatrix = new Matrix4();
-// const bondVector = new Vector3();
-// const threshold  = 0.05;
-
-// // SCRA tree quadratic comparison O(n*n) -> eventually will become lattice search O(4.5*n)
-// let bondIndex = 0;
-// for (const sID of states) {
-// 	const state = SCRA.s[sID];
-	
-// 	for (const cID_i in state.c) {
-// 		const chain_i = state.c[cID_i];
-
-// 		for (const rID_i in chain_i.r) {
-// 			const resid_i = chain_i.r[rID_i];
-
-// 			for (const aID_i in resid_i.a) {
-// 				const atom_i  = resid_i.a[aID_i];
-// 				const i_key = `${sID},${cID_i},${rID_i},${aID_i}`;
-
-
-// 				for (const cID_j in state.c) {
-// 					const chain_j = state.c[cID_j];
-
-// 					for (const rID_j in chain_j.r) {
-// 						const resid_j = chain_j.r[rID_j];
-
-// 						for (const aID_j in resid_j.a) {
-// 							const atom_j  = resid_j.a[aID_j];
-							
-// 							if (atom_i.number === atom_j.number) continue;
-// 							const pointA   = atom_i.pos;
-// 							const pointB   = atom_j.pos;
-// 							const ideal    = 0.5 * ((atomic_models[atom_i.type]["radius"]) + (atomic_models[atom_j.type]["radius"]));
-// 							const distance = pointA.distanceTo(pointB);
-							
-// 							if (Math.abs(ideal-distance) > threshold) continue;
-// 							const j_key = `${sID},${cID_j},${rID_j},${aID_j}`;
-
-
-// 							bondVector.copy(pointB).sub(pointA);
-// 							const bondLength   = bondVector.length();
-// 							const bondMidPoint = pointA.clone().addScaledVector(bondVector, 0.5);
-// 							bondMatrix.identity();
-// 							bondMatrix.lookAt(pointA, pointB, new Vector3(0, 1, 0));
-// 							bondMatrix.multiply(new Matrix4().makeRotationX(Math.PI / 2));
-// 							bondMatrix.setPosition(bondMidPoint);
-// 							bondMatrix.scale(new Vector3(1, bondLength, 1));
-// 							cylinders.setMatrixAt(bondIndex, bondMatrix);
-// 							bondIndex++;
-// 						}
-// 					}
-// 				}
-// 			}
-// 		}
-// 	}
-// }
-// cylinders.count = bondIndex;
-// scene.add(cylinders);
-// };
-
-
+// Will eventually load better sequence information with helpful coloring and formatting
 const loadSeqInfo = (seqInfo) => {
 	let seqString = "";
 	for (const cID in seqInfo.c) {
 		seqString += (seqInfo.id + "_" + cID).padEnd(12, " ") + seqInfo.c[cID] + "\n";
 	}
-	console.log(seqString);
 	document.getElementById("sequence").innerHTML = seqString;
 	document.querySelectorAll('#sequence').forEach(function(v, i, a) {v.classList.add('show'); v.classList.remove('hide')})
 
@@ -57065,16 +57012,16 @@ const loadSeqInfo = (seqInfo) => {
 const canvas       = document.querySelector('#bg');
 const renderer     = new WebGLRenderer({ canvas: canvas });
 const scene        = new Scene();
-const gridHelper   = new GridHelper(40, 40, 0x000000, 0x000000);
+const gridHelper   = new GridHelper(40, 40, 0xFFFFFF, 0xFFFFFF);
 const pointLight   = new PointLight( 0xFFFFFF, 10, 1000, 0.0001 );
 const ambientLight = new AmbientLight( 0xFFFFFF );
 const camera       = new PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 500 );
 const controller   = new CameraController(camera, renderer.domElement);
-scene.background   = new Color( 0xFFFFFFF );
+scene.background   = new Color( 0x000000 );
 scene.fog          = new Fog( 0xFFFFFFF, 10, 200 ); // fog depth will eventually be scrollable? with a key input (mousewheel), have button to toggle between mouse and keypad
 
 pointLight.position.set( 0, 10, 0 );
-scene.add(pointLight, ambientLight);
+scene.add(pointLight, ambientLight, gridHelper);
 renderer.setPixelRatio( window.devicePixelRatio );
 renderer.setSize( window.innerWidth, window.innerHeight );
 camera.position.set( 1, 1, 1 );
@@ -57293,35 +57240,36 @@ function parsePDB(lines) {
 	return [hierarchy, seqInfo, minDims, maxDims];
 }
 
-const drawLattice = (lattice) => {
-	const unitCellSize = lattice.unitLength; // Size of each unit cell
-	const latticeDimensions = new Vector3().copy(lattice.maxDims).sub(lattice.minDims).divideScalar(lattice.unitLength).ceil(); // Number of cells in x, y, z
-	console.log(latticeDimensions);
+const drawLattice = (lattice) => { // probably a way to instancedMesh these
 
-	const material = new LineBasicMaterial({ color: 0xFF0000 });
-	// for (let x = 0; x < latticeDimensions.x; x++) {
-	// 	for (let y = 0; y < latticeDimensions.y; y++) {
-	// 		for (let z = 0; z < latticeDimensions.z; z++) {
-	for (let x = 0; x < 1; x++) {
-		for (let y = 0; y < 1; y++) {
-			for (let z = 0; z < 1; z++) {
-				const geometry = new BoxGeometry(unitCellSize, unitCellSize, unitCellSize);
-				const edges = new EdgesGeometry(geometry);
-				const wireframe = new LineSegments(edges, material);
+	var unitCells = [];
+	
+	const latticeDimensions = new Vector3().copy(lattice.maxDims).sub(lattice.minDims).divideScalar(lattice.unitLength).ceil();
+	const unitCellSize      = lattice.unitLength;
+	
+	const material  = new LineBasicMaterial({ color: 0xFF0000 });
+	for (let x = 0; x < latticeDimensions.x; x++) {
+		for (let y = 0; y < latticeDimensions.y; y++) {
+			for (let z = 0; z < latticeDimensions.z; z++) {
 
 				if (lattice.xyz?.[x]?.[y]?.[z].length === 0) continue;
+
+				const geometry  = new BoxGeometry(unitCellSize, unitCellSize, unitCellSize);
+				const edges     = new EdgesGeometry(geometry);
+				const wireframe = new LineSegments(edges, material);
 				
 				// Position each cell
 				wireframe.position.set(
-					x * unitCellSize + lattice.minDims.x,
-					y * unitCellSize + lattice.minDims.y,
-					z * unitCellSize + lattice.minDims.z
+					x * unitCellSize + unitCellSize/2 + lattice.minDims.x,
+					y * unitCellSize + unitCellSize/2 + lattice.minDims.y,
+					z * unitCellSize + unitCellSize/2 + lattice.minDims.z
 				);
 				scene.add(wireframe);
+				unitCells.push(wireframe);
 			}
 		}
 	}
-
+	return unitCells;
 }
 
 // browsing pdb file
@@ -57339,7 +57287,7 @@ document.getElementById('browse-pdb').onchange = function() {
 		loadSeqInfo(seqInfo);
 		loadAtomInstances(SCRA, ((Object.keys(SCRA.s).length > 1) ? [1]: [0]));
 		loadBondInstances(((Object.keys(SCRA.s).length > 1) ? [1]: [0]));
-		drawLattice(lattice);
+		unitCells = drawLattice(lattice);
 	};
 };
 // ----------------------------------------------------------------
@@ -57455,10 +57403,17 @@ document.getElementById('value-slider').onchange = function(e) {
 document.getElementById('clear').onclick = function	() {
 	scene.remove(spheres);
 	scene.remove(cylinders);
+	unitCells.forEach((v, i, a) => scene.remove(v));
 	spheres   = [];
 	cylinders = []; connections = {};
 	renderer.render( scene, camera );
 	document.getElementById("sequence").innerHTML = "";
+	SCRA 		= {};
+	flAtoms		= []; // atomKeys
+	bonds_index = {};
+	index_bonds = [];
+	connections = {};
+	unitCells   = [];
 
 };
 // ----------------------------------------------------------------
