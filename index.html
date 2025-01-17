@@ -56809,7 +56809,7 @@ var connections = {};
 var unitCells;
 // ----------------------------------------------------------------
 const atomSCRA = (key) => {
-	// key will be split by space
+	// key will be split by comma
 	let keySplit = key.split(",")
 	return SCRA.s[keySplit[0]].c[keySplit[1]].r[keySplit[2]].a[keySplit[3]];
 }
@@ -57025,6 +57025,23 @@ scene.add(pointLight, ambientLight, gridHelper);
 renderer.setPixelRatio( window.devicePixelRatio );
 renderer.setSize( window.innerWidth, window.innerHeight );
 camera.position.set( 1, 1, 1 );
+
+// if (performance.memory) {
+// 	console.log(`Used JS heap size: ${performance.memory.usedJSHeapSize / 1024 / 1024} MB`);
+// 	console.log(`Total JS heap size: ${performance.memory.totalJSHeapSize / 1024 / 1024} MB`);
+// 	console.log(`JS heap size limit: ${performance.memory.jsHeapSizeLimit / 1024 / 1024} MB`);
+
+// } else {
+// 	console.log("Performance memory API is not supported in this browser.");
+// }
+// console.log(renderer);
+// const gl = renderer.getContext();
+// const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+
+// const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
+// const renderera = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+// console.log('GPU Vendor:', vendor);
+// console.log('GPU Renderer:', renderera);
 // ----------------------------------------------------------------
 
 
@@ -57039,42 +57056,42 @@ var pointIntersect = new Vector3(); // point of intersection with an object (pla
 var shift          = new Vector3(); // distance between position of an object and points of intersection with the object
 const plane_normal = new Vector3( 0, 1, 0 ); // plane's normal
 
-document.addEventListener('pointerdown', function(e) {
+// document.addEventListener('pointerdown', function(e) {
 
-	var intersects = raycaster.intersectObjects( scene.children );
+// 	var intersects = raycaster.intersectObjects( scene.children );
 	
-	scroll_ctr = 0;
-	for ( let i = 0; i < intersects.length; i++ ) {
-		if (intersects[i].object.type == "Mesh") {
-			controller.Disable()
-			pointIntersect.copy(intersects[i].point);
-			plane.setFromNormalAndCoplanarPoint(plane_normal, pointIntersect);
-			shift.subVectors(intersects[i].object.position, intersects[i].point);
-			dragObject = intersects[i].object;
-			y_start = dragObject.position.y;
-			break;
-		}
-	}
-});
+// 	scroll_ctr = 0;
+// 	for ( let i = 0; i < intersects.length; i++ ) {
+// 		if (intersects[i].object.type == "Mesh") {
+// 			controller.Disable()
+// 			pointIntersect.copy(intersects[i].point);
+// 			plane.setFromNormalAndCoplanarPoint(plane_normal, pointIntersect);
+// 			shift.subVectors(intersects[i].object.position, intersects[i].point);
+// 			dragObject = intersects[i].object;
+// 			y_start = dragObject.position.y;
+// 			break;
+// 		}
+// 	}
+// });
 
-document.addEventListener('wheel', e => {
-  if (dragObject != null) {
-    dragObject.position.y += scroll_rate*(Number(e.deltaY > 0)*2-1);
-    scroll_ctr += (Number(e.deltaY > 0)*2-1);
-  }
-});
-document.addEventListener("pointermove", e => {
-  mouse = new Vector2( ( e.clientX / window.innerWidth ) * 2 - 1, -( e.clientY / window.innerHeight ) * 2 + 1 );
-  raycaster.setFromCamera(mouse, camera);
-  if (dragObject) {
-    raycaster.ray.intersectPlane(plane, planeIntersect);
-    dragObject.position.addVectors(planeIntersect, shift);
-    dragObject.position.y = y_start + scroll_rate*scroll_ctr
-  }
-});
-document.addEventListener("pointerup", () => {
-	dragObject = null; controller.Enable()
-});
+// document.addEventListener('wheel', e => {
+//   if (dragObject != null) {
+//     dragObject.position.y += scroll_rate*(Number(e.deltaY > 0)*2-1);
+//     scroll_ctr += (Number(e.deltaY > 0)*2-1);
+//   }
+// });
+// document.addEventListener("pointermove", e => {
+//   mouse = new Vector2( ( e.clientX / window.innerWidth ) * 2 - 1, -( e.clientY / window.innerHeight ) * 2 + 1 );
+//   raycaster.setFromCamera(mouse, camera);
+//   if (dragObject) {
+//     raycaster.ray.intersectPlane(plane, planeIntersect);
+//     dragObject.position.addVectors(planeIntersect, shift);
+//     dragObject.position.y = y_start + scroll_rate*scroll_ctr
+//   }
+// });
+// document.addEventListener("pointerup", () => {
+// 	dragObject = null; controller.Enable()
+// });
 // ----------------------------------------------------------------
 
 
@@ -57287,7 +57304,16 @@ document.getElementById('browse-pdb').onchange = function() {
 		loadSeqInfo(seqInfo);
 		loadAtomInstances(SCRA, ((Object.keys(SCRA.s).length > 1) ? [1]: [0]));
 		loadBondInstances(((Object.keys(SCRA.s).length > 1) ? [1]: [0]));
-		unitCells = drawLattice(lattice);
+		// unitCells = drawLattice(lattice);
+		if (performance.memory) {
+			console.log(`Used JS heap size: ${performance.memory.usedJSHeapSize / 1024 / 1024} MB`);
+			console.log(`Total JS heap size: ${performance.memory.totalJSHeapSize / 1024 / 1024} MB`);
+			console.log(`JS heap size limit: ${performance.memory.jsHeapSizeLimit / 1024 / 1024} MB`);
+
+		} else {
+			console.log("Performance memory API is not supported in this browser.");
+		}
+
 	};
 };
 // ----------------------------------------------------------------
