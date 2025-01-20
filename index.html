@@ -56768,29 +56768,34 @@ const atomic_models = {
     "OG" : { 'z': 118, "radius": 0.400, "color": 0x000000 },
 };
 
-var atomicSystem;
+var atomicSystem, SCRA, unitCells;
 
-// contains IDs in a 3D lattice for accession
+// contains a list IDs in unit cells of a 3D lattice for accession and restricted space searching
 class Lattice {
 
 	constructor(x, y, z, unitLength, minXYZ, maxXYZ) {
 
+		// container for position IDs grouped by unit cell
 		this.xyz	    = Array.from({ length: x }, () => Array.from({ length: y }, () => Array.from({ length: z }, () => [])));
+
 		this.unitLength = unitLength;
 		this.minXYZ 	= minXYZ;
 		this.maxXYZ 	= maxXYZ;
-
 	};
 
+	// add value to proper unit cell based on position
 	set = (pos, value) => {
 		let cell = this.pos2Cell(pos);
 		this.xyz[ cell.x ][ cell.y ][ cell.z ].push(value);
 	};
 
+	// get cell IDs from lattice
 	get = (cell) => {return this.xyz[cell.x][cell.y][cell.z]};
 
+	// convert position to unit cell
 	pos2Cell = (pos) => {return new Vector3().copy(pos).sub(this.minXYZ).divideScalar(this.unitLength).floor()};
 
+	// check if a given unit cell coordinates is bounded by lattice
 	isBounded = (cell) => {return this.xyz?.[cell.x]?.[cell.y]?.[cell.z] !== undefined;}
 };
 
@@ -56804,44 +56809,43 @@ class System {
 		this.numAtoms  		   = ((this.numStates > 1) ? this.SCRA.s[1].atomCount : this.SCRA.s[0].atomCount);
 		this.stateObjects      = Object.fromEntries(Object.keys(this.SCRA.s).map(state => [state, {"spheres": "", "lattice": "", "flAtoms": "", "cylinders": "", "connections": ""}])) // holds the various InstancedMeshes and lattice
 		
-		this.buildMeshes();
+		this.fillMeshes();
 		this.loadState(0);
 	};
 
-	buildMeshes = () => {
+	// fills the relevant objects for all states - accessible in this.stateObjects
+	fillMeshes = () => {
 
 		for (const sID in this.SCRA.s){
 
 			let state = this.SCRA.s[sID];
 
-			let [spheres, lattice, flAtoms] 	= this.initializeStateAtoms(state);
+			const [spheres, lattice, flAtoms] = this.initializeStateAtoms(state);
 			this.stateObjects[sID]["spheres"] = spheres;
 			this.stateObjects[sID]["lattice"] = lattice;
 			this.stateObjects[sID]["flAtoms"] = flAtoms;
 
-			let [cylinders, connections] 		  	= this.initializeStateBonds(state, flAtoms);
-			this.stateObjects[sID]["cylinders"] 	= cylinders;
+			const [cylinders, connections] 		  = this.initializeStateBonds(state, flAtoms, lattice);
+			this.stateObjects[sID]["cylinders"]   = cylinders;
 			this.stateObjects[sID]["connections"] = connections;
 
 		}
-		console.log(this.stateObjects);
 	};
 
+	// loads atom information from key
 	getAtomFromState = (key, state) => {
-		// key will be split by comma
 		let keySplit = key.split(",")
 		return state?.c[keySplit[0]]?.r[keySplit[1]]?.a[keySplit[2]];
 	}
 
-
+	// initialize atoms of a specific state
 	initializeStateAtoms = (state) => {
 
-		let flAtoms = [];
+		let flAtoms = []; // 1D (flat) atom array
 
 		// building the lattice
 		let unitCells = new Vector3().copy(state.maxXYZ).sub(state.minXYZ).divideScalar(0.4).ceil();
-		lattice       = new Lattice(unitCells.x, unitCells.y, unitCells.z, 0.4, state.minXYZ, state.maxXYZ);
-
+		let lattice   = new Lattice(unitCells.x, unitCells.y, unitCells.z, 0.4, state.minXYZ, state.maxXYZ);
 
 		// Initializing InstancedMesh
 		const count 	   = state.atomCount;
@@ -56853,8 +56857,8 @@ class System {
 		const matrix = new Matrix4();
 		const color  = new Color();
 
+		// fill "flAtoms" and "spheres" with atoms from inputted state
 		let index = 0;
-			
 		for (const cID in state.c) {
 			const chain = state.c[cID];
 
@@ -56864,9 +56868,11 @@ class System {
 				for (const aID in resid.a) {
 					const atom = resid.a[aID];
 
+					// fetching atom-derived attributes
 					color.set(atomic_models[atom.type]["color"]);
 					let radius = atomic_models[atom.type]["radius"];
 					let pos    = atom.pos;
+
 					// reset the matrix
 					matrix.identity();
 
@@ -56886,22 +56892,21 @@ class System {
 				}
 			}
 		}
-		spheres.frustumCulled = true; // is this possible? can't tell if this does anything
+		spheres.frustumCulled = true; // might do nothing
 		return [spheres, lattice, flAtoms];
 	};
 
-	initializeStateBonds = (state, flAtoms) => {
+	// initialize bonds of a specific state
+	initializeStateBonds = (state, flAtoms, lattice) => {
 
-		// system tree container
-		connections = {};
-
-		// approximate bond count
+		// dictionary of all bonds - adjacency list might be better
+		let connections = {};
 
 		// initializing InstancedMesh
-		const numBonds 	   = state.atomCount*3; // conservative, but clippable at end
+		const numBonds 	   = state.atomCount*1.5; // conservative, but clippable at end
 		const bondGeometry = new CylinderGeometry(0.01, 0.01, 1, 8);
 		const bondMaterial = new MeshStandardMaterial({ color: 0xaaaaaa })
-		cylinders 		   = new InstancedMesh(bondGeometry, bondMaterial, numBonds);
+		const cylinders    = new InstancedMesh(bondGeometry, bondMaterial, numBonds);
 
 		// Helper objects for positioning and rotating
 		const bondMatrix = new Matrix4();
@@ -56923,59 +56928,71 @@ class System {
 
 		let visitedAtoms = {};
 		let visitedCells = {};
+
+		// fill "connections" and "cylinders" with bonds determined by atom position
 		let index    	 = 0;
 		for (const atomKey of flAtoms) {
 
+			// skip visited
 			if (atomKey in visitedAtoms) continue;
 
 			let pos    = this.getAtomFromState(atomKey, state).pos;
 			let cell   = lattice.pos2Cell(pos);
 			let cellID = [cell.x, cell.y, cell.z].join(",")
 
-			if (cellID in visitedCells) {console.log("shit"); continue}
+			// skip visited
+			if (cellID in visitedCells) continue;
 
+			// check for bonds within and between central and local unit cells
 			let cellAtoms = lattice.get(cell);
 			for (const a of cellAtoms) {
 
 				const atomA	   = this.getAtomFromState(a, state);
 				const pointA   = atomA.pos;
 
+				// iterate over the 27 local unit cells
 				let i = 0;
 				for (let i = 0; i < offsets.length; i++) {
 
-					let nbrCell   = new Vector3().copy(cell).add(offsets[i]);
-					let nbrCellID = [nbrCell.x, nbrCell.y, nbrCell.z].join(","); // If this is done often, make into makeID()
+					let localCell   = new Vector3().copy(cell).add(offsets[i]);
+					let localCellID = [localCell.x, localCell.y, localCell.z].join(","); // If ID conversion is done often, make into makeID()
 
-					if (!lattice.isBounded(nbrCell) || nbrCellID in visitedCells) continue;
+					// skip visited or illegal unit cells
+					if (!lattice.isBounded(localCell) || localCellID in visitedCells) continue;
 
-					let nbrAtoms = lattice.get(nbrCell);
+					let localAtoms = lattice.get(localCell);
 
-					for (const b of nbrAtoms) {
+					// iterate through atoms in local unit cell
+					for (const b of localAtoms) {
 
 						const atomB = this.getAtomFromState(b, state);
 
+						// skip visited and self comparison
 						if (atomA.number === atomB.number || [a,b].sort().join("") in connections) continue;
 
+						// calculate ideal and actual bond distance
 						const pointB   = atomB.pos;
 						const ideal    = 0.5 * ((atomic_models[atomA.type]["radius"]) + (atomic_models[atomB.type]["radius"]));
 						const distance = pointA.distanceTo(pointB);
 						
+						// bond constraint
 						if (Math.abs(ideal-distance) > threshold) continue;
 
+						// construct derived mesh and set within "cylinders"
 						bondVector.copy(pointB).sub(pointA);
-
 						const bondLength   = bondVector.length();
 						const bondMidPoint = pointA.clone().addScaledVector(bondVector, 0.5);
-						
 						bondMatrix.identity();
 						bondMatrix.lookAt(pointA, pointB, new Vector3(0, 1, 0));
 						bondMatrix.multiply(new Matrix4().makeRotationX(Math.PI / 2));
 						bondMatrix.setPosition(bondMidPoint);
 						bondMatrix.scale(new Vector3(1, bondLength, 1));
 						cylinders.setMatrixAt(index, bondMatrix);
+
 						index++;
 
-						connections[[a,b].sort().join("")] = distance; // might as well make this value something helpful
+						// add bond to "connections"
+						connections[[a,b].sort().join("")] = distance;
 					}
 				}
 				visitedAtoms[a] = true;
@@ -56988,8 +57005,8 @@ class System {
 		return [cylinders, connections];
 	}
 
+	// adds spheres and cylinders from the indexed state to the scene
 	loadState = (index) => {
-
 		let objects   = this.stateObjects[Object.keys(this.stateObjects)[index]];
 		let spheres   = objects["spheres"];
 		let cylinders = objects["cylinders"];
@@ -57002,21 +57019,7 @@ class System {
 	}
 
 };
-// ------------------- system storage objects ---------------------
-var SCRA        = {}; // states --> chains -> residues -> atoms
-var spheres     = [];
-var flAtoms		= []; // atomKeys
 
-var bonds_index = {};
-var index_bonds = [];
-var cylinders   = [];
-
-var minDims;
-var maxDims;
-var lattice;
-var connections = {};
-
-var unitCells;
 // ----------------------------------------------------------------
 
 
@@ -57123,11 +57126,10 @@ const animate = () => {
 }; animate();
 
 
-
-
 let stateCounter = 0;
 window.addEventListener('keydown', (e) => {
-	let stateCount = atomicSystem.numStates;
+	let stateCount;
+	if (atomicSystem !== undefined) stateCount = atomicSystem.numStates;
 	switch(e.key) {
 		case 'ArrowRight':
 			if (stateCounter >= 0 && stateCounter < stateCount) atomicSystem.loadState(stateCounter);
@@ -57140,9 +57142,8 @@ window.addEventListener('keydown', (e) => {
   	}
 });
 
-// 
-// ---------------- [ADD -> SYSTEM] IMPLEMENTATION ----------------
 
+// ---------------- [ADD -> SYSTEM] IMPLEMENTATION ----------------
 // General PDB file parser, returns hierarchy: state -> chain -> residue -> atoms
 function parsePDB(lines) {
 
@@ -57296,7 +57297,7 @@ const drawLattice = (lattice) => { // probably a way to instancedMesh these
 
 	var unitCells = [];
 	
-	const latticeDimensions = new Vector3().copy(lattice.maxDims).sub(lattice.minDims).divideScalar(lattice.unitLength).ceil();
+	const latticeDimensions = new Vector3().copy(lattice.maxXYZ).sub(lattice.minXYZ).divideScalar(lattice.unitLength).ceil();
 	const unitCellSize      = lattice.unitLength;
 	
 	const material  = new LineBasicMaterial({ color: 0xFF0000 });
@@ -57312,9 +57313,9 @@ const drawLattice = (lattice) => { // probably a way to instancedMesh these
 				
 				// Position each cell
 				wireframe.position.set(
-					x * unitCellSize + unitCellSize/2 + lattice.minDims.x,
-					y * unitCellSize + unitCellSize/2 + lattice.minDims.y,
-					z * unitCellSize + unitCellSize/2 + lattice.minDims.z
+					x * unitCellSize + unitCellSize/2 + lattice.minXYZ.x,
+					y * unitCellSize + unitCellSize/2 + lattice.minXYZ.y,
+					z * unitCellSize + unitCellSize/2 + lattice.minXYZ.z
 				);
 				scene.add(wireframe);
 				unitCells.push(wireframe);
@@ -57324,22 +57325,25 @@ const drawLattice = (lattice) => { // probably a way to instancedMesh these
 	return unitCells;
 }
 
+// ------------------- system storage objects ---------------------
+
 // browsing pdb file
 document.getElementById('browse-pdb').onchange = function() {
+
 	const CoM 	  = new Vector3(0, 0, 0);
 	const file    = this.files[this.files.length-1];
 	const reader  = new FileReader(); reader.readAsText(file);
-	var seqInfo;
+
 	reader.onload = function() {
+		let seqInfo;
 		const text  = this.result;
 		const lines = text.split('\n');
 		[SCRA, seqInfo] = parsePDB(lines);
-		document.getElementById('browse-pdb').value = "";
-		// Handling single vs multi-state files
+		atomicSystem = new System(SCRA);
+
 		// loadSeqInfo(seqInfo);
-		// loadAtomInstances(SCRA, ((Object.keys(SCRA.s).length > 1) ? [1]: [0]));
-		// loadBondInstances(((Object.keys(SCRA.s).length > 1) ? [1]: [0]));
 		// unitCells = drawLattice(lattice);
+
 		if (performance.memory) {
 			console.log(`Used JS heap size: ${performance.memory.usedJSHeapSize / 1024 / 1024} MB`);
 			console.log(`Total JS heap size: ${performance.memory.totalJSHeapSize / 1024 / 1024} MB`);
@@ -57348,7 +57352,8 @@ document.getElementById('browse-pdb').onchange = function() {
 		} else {
 			console.log("Performance memory API is not supported in this browser.");
 		}
-		atomicSystem = new System(SCRA);
+		document.getElementById('browse-pdb').value = "";
+
 	};
 };
 // ----------------------------------------------------------------
@@ -57399,6 +57404,10 @@ dragElement(document.getElementById("color-menu"));
 
 
 // ----------------- [COLOR MENU] IMPLEMENTATION ------------------
+var hsv_hue;
+var hsv_saturation;
+var hsv_value = 0.5;
+var rgb;
 
 function setColor(label) {
 	if (label === '.menu-item-color') {
@@ -57415,18 +57424,13 @@ function setColor(label) {
 		gridHelper.material.needsUpdate = true;
 	}
 }
-var hsv_hue;
-var hsv_saturation;
-var hsv_value = 0.5;
-var rgb;
 
 document.getElementById('color-wheel-image').onclick = function(e) {
 
 	let mouseX = e.layerX - document.getElementById('color-wheel-image').offsetWidth/2;
 	let mouseY = e.layerY - document.getElementById('color-wheel-image').offsetHeight/2;
 
-	let hsv_theta  = Math.atan2(mouseY, mouseX);
-	hsv_hue        = (hsv_theta * 180/Math.PI + 360) % 360; 
+	hsv_hue        = (Math.atan2(mouseY, mouseX) * 180/Math.PI + 360) % 360; 
 	hsv_saturation = Math.sqrt(mouseX**2 + mouseY**2)/(document.getElementById('color-wheel-image').offsetWidth/2);
 
 	// need to convert to rgb
@@ -57434,7 +57438,6 @@ document.getElementById('color-wheel-image').onclick = function(e) {
     let r = Math.round(f(5) * 255);
 	let g = Math.round(f(3) * 255);
 	let b = Math.round(f(1) * 255);
-	console.log(hsv_hue, hsv_saturation, hsv_value);
 
 	rgb = `rgb(${r}, ${g}, ${b})`
     document.getElementById('color-display').style.backgroundColor = rgb;
