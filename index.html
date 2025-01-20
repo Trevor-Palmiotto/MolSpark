@@ -56771,12 +56771,12 @@ const atomic_models = {
 // contains IDs in a 3D lattice for accession
 class Lattice {
 
-	constructor(x, y, z, unitLength, minDims, maxDims) {
+	constructor(x, y, z, unitLength, minXYZ, maxXYZ) {
 
 		this.xyz	    = Array.from({ length: x }, () => Array.from({ length: y }, () => Array.from({ length: z }, () => [])));
 		this.unitLength = unitLength;
-		this.minDims 	= minDims;
-		this.maxDims 	= maxDims;
+		this.minXYZ 	= minXYZ;
+		this.maxXYZ 	= maxXYZ;
 
 	};
 
@@ -56787,11 +56787,102 @@ class Lattice {
 
 	get = (cell) => {return this.xyz[cell.x][cell.y][cell.z]};
 
-	pos2Cell = (pos) => {return new Vector3().copy(pos).sub(this.minDims).divideScalar(this.unitLength).floor()};
+	pos2Cell = (pos) => {return new Vector3().copy(pos).sub(this.minXYZ).divideScalar(this.unitLength).floor()};
 
 	isBounded = (cell) => {return this.xyz?.[cell.x]?.[cell.y]?.[cell.z] !== undefined;}
 };
 
+class System {
+	
+	constructor(SCRA) {
+		if (Object.keys(SCRA.s).length > 1) {delete SCRA.s?.['0']; console.log('huh')}
+
+		this.SCRA 	   		   = SCRA;
+		this.numStates 		   = Object.keys(SCRA.s).length;
+		this.numAtoms  		   = ((this.numStates > 1) ? this.SCRA.s[1].atomCount : this.SCRA.s[0].atomCount);
+		this.stateRendering    = Array.from({length: this.numStates}).fill({"spheres": "", "lattice": "", "flAtoms": ""}); // holds the various InstancedMeshes and lattice
+		console.log(this.SCRA);
+		this.buildMeshes();
+	};
+
+	buildMeshes = () => {
+
+		for (const sID in this.SCRA.s){
+			let [spheres, lattice, flAtoms] = this.loadAtomState(this.SCRA.s[sID]);
+			this.stateRendering[sID]["spheres"] = spheres;
+			this.stateRendering[sID]["lattice"] = lattice;
+			this.stateRendering[sID]["flAtoms"] = flAtoms;
+		// loadBondInstances()
+		}
+		console.log(this.stateRendering);
+	};
+
+
+
+	loadAtomState = (state) => {
+
+		// building the lattice
+		let flAtoms   = [];
+
+		let unitCells = new Vector3().copy(state.maxXYZ).sub(state.minXYZ).divideScalar(0.4).ceil();
+		lattice       = new Lattice(
+			unitCells.x,
+			unitCells.y, 
+			unitCells.z,
+			0.4,
+			state.minXYZ,
+			state.maxXYZ
+		);
+
+		let count = state.atomCount;
+
+		// Initializing InstancedMesh
+		const atomGeometry = new SphereGeometry(0.2, 18, 18);
+		const atomMaterial = new MeshStandardMaterial({ color: 0x888888 });
+		const spheres      = new InstancedMesh(atomGeometry, atomMaterial, count);
+
+		// Initializing position and color objects
+		const matrix = new Matrix4();
+		const color  = new Color();
+
+		let i = 0;
+			
+		for (const cID in state.c) {
+			const chain = state.c[cID];
+
+			for (const rID in chain.r) {
+				const resid = chain.r[rID];
+
+				for (const aID in resid.a) {
+					const atom = resid.a[aID];
+
+					color.set(atomic_models[atom.type]["color"]);
+					let radius = atomic_models[atom.type]["radius"];
+					let pos    = atom.pos;
+					// reset the matrix
+					matrix.identity();
+
+					// set the position and scale
+					matrix.setPosition(pos.x, pos.y, pos.z);
+					matrix.scale(new Vector3(radius, radius, radius));
+					
+					// set matrix and color in InstancedMesh
+					spheres.setMatrixAt(i, matrix);
+					spheres.setColorAt (i, color);
+
+					let atomKey = [cID, rID, aID].join(",");
+					lattice.set(pos, atomKey);
+					flAtoms.push(atomKey);
+
+					i++;
+				}
+			}
+		}
+		spheres.frustumCulled = true; // is this possible? can't tell if this does anything
+		return [spheres, lattice, flAtoms];
+	};
+
+};
 // ------------------- system storage objects ---------------------
 var SCRA        = {}; // states --> chains -> residues -> atoms
 var spheres     = [];
@@ -56997,7 +57088,7 @@ const loadBondInstances = (states) => {
 	scene.add(cylinders);
 };
 
-// Will eventually load better sequence information with helpful coloring and formatting
+// Will eventually load better sequence information with helpful coloring and formatting - for now, fuck CSS
 const loadSeqInfo = (seqInfo) => {
 	let seqString = "";
 	for (const cID in seqInfo.c) {
@@ -57025,23 +57116,6 @@ scene.add(pointLight, ambientLight, gridHelper);
 renderer.setPixelRatio( window.devicePixelRatio );
 renderer.setSize( window.innerWidth, window.innerHeight );
 camera.position.set( 1, 1, 1 );
-
-// if (performance.memory) {
-// 	console.log(`Used JS heap size: ${performance.memory.usedJSHeapSize / 1024 / 1024} MB`);
-// 	console.log(`Total JS heap size: ${performance.memory.totalJSHeapSize / 1024 / 1024} MB`);
-// 	console.log(`JS heap size limit: ${performance.memory.jsHeapSizeLimit / 1024 / 1024} MB`);
-
-// } else {
-// 	console.log("Performance memory API is not supported in this browser.");
-// }
-// console.log(renderer);
-// const gl = renderer.getContext();
-// const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-
-// const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
-// const renderera = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
-// console.log('GPU Vendor:', vendor);
-// console.log('GPU Renderer:', renderera);
 // ----------------------------------------------------------------
 
 
@@ -57137,6 +57211,7 @@ const animate = () => {
 
 // General PDB file parser, returns hierarchy: state -> chain -> residue -> atoms
 function parsePDB(lines) {
+
 	const aminoAcidMap = {
 		ALA: "A", ARG: "R", ASN: "N", ASP: "D", CYS: "C",
 		GLN: "Q", GLU: "E", GLY: "G", HIS: "H", ILE: "I",
@@ -57152,34 +57227,52 @@ function parsePDB(lines) {
 	};
 
 	// positional information
-	const center = new Vector3(0, 0, 0);
-	const minDims = new Vector3(Infinity, Infinity, Infinity);
-	const maxDims = new Vector3(-Infinity, -Infinity, -Infinity);
 	var seqInfo  = {c: {}};
 	
 	// Hierarchical object: state -> chain -> residue -> atoms (hierarchy[0] is the case for single state)
-	const hierarchy   = {s: {0:{atomCount: 0, c: {}}}};
+	const hierarchy   = {s: {0: {atomCount: 0, 
+								 c: {}, 
+								 center: new Vector3(0,0,0), 
+								 minXYZ: new Vector3(Infinity, Infinity, Infinity), 
+								 maxXYZ: new Vector3(-Infinity, -Infinity, -Infinity)
+	}}}; // this could be done differently
 	
-	let currentState = null;   // Current MODEL number
+	let currState = null;   // Current MODEL number
+	let prevState = null;
 	let atomCounter  = 0; // Consider this being replaced by atomSerial...
-	let prevRID   = 0;
+	let prevRID      = 0;
 
 	for (const line of lines) {
 		const recordType = line.slice(0, 6).trim();
 
 		if (recordType === "MODEL") {
+
 			// Start a new state
-			currentState = parseInt(line.slice(10, 14).trim(), 10);
-			if (!hierarchy.s[currentState]) hierarchy.s[currentState] = {atomCount: 0, c: {}};
+			currState = parseInt(line.slice(10, 14).trim(), 10);
+			if (!hierarchy.s[currState]) {
+			
+				hierarchy.s[currState] = {
+					atomCount: 0, 
+					c: {}, 
+					center: new Vector3(0,0,0), 
+					minXYZ: new Vector3(Infinity, Infinity, Infinity), 
+					maxXYZ: new Vector3(-Infinity, -Infinity, -Infinity)
+				};
+			}
+
 		} 
 		else if (recordType === "ENDMDL") {
-			// End of current state
-			currentState = null;
+
+			// End of current state - set the center
+			hierarchy?.s[currState]?.center?.divideScalar(hierarchy?.s[currState]?.atomCount);
+			currState = null;
+			atomCounter = 0;
 		}
 		else if (recordType === "HEADER") {
 			seqInfo.id = line.split("  ").filter(i => i).slice(-1);
 		}
 		else if (recordType === "ATOM" || recordType === "HETATM") {
+
 			// Parse atom data
 			const atomSerial = parseInt(line.slice(6, 11).trim(), 10);
 			const atomName   = line.slice(12, 16).trim();
@@ -57192,21 +57285,25 @@ function parsePDB(lines) {
 			const z          = parseFloat(line.slice(46, 54).trim())/10; // angstrom to nanometer
 			const atomType   = line.substring(76, 78).trim();
 
-			const sID = ((currentState !== null) ? currentState : 0);
-
+			const sID = ((currState !== null) ? currState : 0);
 			if (!hierarchy.s[sID].c[cID]) {
+
 				hierarchy.s[sID].c[cID] = {atomCount: 0, r: {}};
 				if (!seqInfo.c[cID]) seqInfo.c[cID] = "";
+			
 			}
 
 
 			// Set residue key (initialize as necessary)
 			const rID = `${resName}${resSeq}`;
 			if (!hierarchy.s[sID].c[cID].r[rID]) {
+
 				hierarchy.s[sID].c[cID].r[rID] = {atomCount: 0, residueName: resName, a: {}};
 				if (prevRID != rID && resName !== "HOH") {
+			
 					seqInfo.c[cID] += aminoAcidMap[resName];
 					prevRID = rID;
+			
 				}
 			}
 
@@ -57218,7 +57315,8 @@ function parsePDB(lines) {
 				type  : atomType,
 				pos   : new Vector3(x, y, z)// nanometers
 			};
-			center.add(hierarchy.s[sID].c[cID].r[rID].a[atomSerial].pos);
+			
+			hierarchy?.s[currState]?.center.add(hierarchy.s[sID].c[cID].r[rID].a[atomSerial].pos);
 
 			// update atom counts
 			hierarchy.s[sID].atomCount++;
@@ -57228,11 +57326,13 @@ function parsePDB(lines) {
 	}
 	
 	// Centering atoms
-	center.divideScalar(atomCounter)
-
 	for (const sID in hierarchy.s) {
 		const state = hierarchy.s[sID];
-		
+
+		let center = state.center;
+		let minXYZ = state.minXYZ;
+		let maxXYZ = state.maxXYZ;
+
 		for (const cID in state.c) {
 			const chain = state.c[cID];
 
@@ -57241,20 +57341,20 @@ function parsePDB(lines) {
 
 				for (const aID in resid.a) {
 
-					resid.a[aID].pos.sub(center);
+					resid?.a[aID]?.pos?.sub(center);
 
-					if (minDims.x > resid.a[aID].pos.x) minDims.x = resid.a[aID].pos.x;
-					if (minDims.y > resid.a[aID].pos.y) minDims.y = resid.a[aID].pos.y;
-					if (minDims.z > resid.a[aID].pos.z) minDims.z = resid.a[aID].pos.z;
+					if (minXYZ.x > resid.a[aID].pos.x) minXYZ.x = resid.a[aID].pos.x;
+					if (minXYZ.y > resid.a[aID].pos.y) minXYZ.y = resid.a[aID].pos.y;
+					if (minXYZ.z > resid.a[aID].pos.z) minXYZ.z = resid.a[aID].pos.z;
 
-					if (maxDims.x < resid.a[aID].pos.x) maxDims.x = resid.a[aID].pos.x;
-					if (maxDims.y < resid.a[aID].pos.y) maxDims.y = resid.a[aID].pos.y;
-					if (maxDims.z < resid.a[aID].pos.z) maxDims.z = resid.a[aID].pos.z;
+					if (maxXYZ.x < resid.a[aID].pos.x) maxXYZ.x = resid.a[aID].pos.x;
+					if (maxXYZ.y < resid.a[aID].pos.y) maxXYZ.y = resid.a[aID].pos.y;
+					if (maxXYZ.z < resid.a[aID].pos.z) maxXYZ.z = resid.a[aID].pos.z;
 				}
 			}
 		}
 	}
-	return [hierarchy, seqInfo, minDims, maxDims];
+	return [hierarchy, seqInfo];
 }
 
 const drawLattice = (lattice) => { // probably a way to instancedMesh these
@@ -57298,12 +57398,12 @@ document.getElementById('browse-pdb').onchange = function() {
 	reader.onload = function() {
 		const text  = this.result;
 		const lines = text.split('\n');
-		[SCRA, seqInfo, minDims, maxDims] = parsePDB(lines);
+		[SCRA, seqInfo] = parsePDB(lines);
 		document.getElementById('browse-pdb').value = "";
 		// Handling single vs multi-state files
-		loadSeqInfo(seqInfo);
-		loadAtomInstances(SCRA, ((Object.keys(SCRA.s).length > 1) ? [1]: [0]));
-		loadBondInstances(((Object.keys(SCRA.s).length > 1) ? [1]: [0]));
+		// loadSeqInfo(seqInfo);
+		// loadAtomInstances(SCRA, ((Object.keys(SCRA.s).length > 1) ? [1]: [0]));
+		// loadBondInstances(((Object.keys(SCRA.s).length > 1) ? [1]: [0]));
 		// unitCells = drawLattice(lattice);
 		if (performance.memory) {
 			console.log(`Used JS heap size: ${performance.memory.usedJSHeapSize / 1024 / 1024} MB`);
@@ -57313,7 +57413,7 @@ document.getElementById('browse-pdb').onchange = function() {
 		} else {
 			console.log("Performance memory API is not supported in this browser.");
 		}
-
+		let syst = new System(SCRA);
 	};
 };
 // ----------------------------------------------------------------
