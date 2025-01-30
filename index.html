@@ -56908,7 +56908,7 @@ class Lattice {
 			const yz = this.dimensions.y*this.dimensions.z;
 			const x  = (i / yz) | 0;
 			const y  = (i % yz / this.dimensions.z) | 0;
-			const z  = (i % yz % this.dimensions.z); // interesting that z is not needed...
+			const z  = (i % yz % this.dimensions.z);
 			
 			const parentUnitCell = new Vector3(x, y, z);
 			
@@ -56941,8 +56941,10 @@ class System {
 			let state = this.SCRA.s[sID];
 
 			const [spheres, lattice, flAtoms] = this.initializeStateAtoms(state);
+			
+			// order unit cell atoms by electronegativity
 			lattice.orderUnitCells();
-			console.log(lattice);
+
 			this.stateObjects[sID]["spheres"] = spheres;
 			this.stateObjects[sID]["lattice"] = lattice;
 			this.stateObjects[sID]["flAtoms"] = flAtoms;
@@ -57016,18 +57018,18 @@ class System {
 			}
 		}
 
-		spheres.frustumCulled = true; // might do nothing
+		spheres.frustumCulled = true; // don't render objects completely outside of the viewing frustum
 		return [spheres, lattice, flAtoms];
 	};
 
 	// initialize bonds of a specific state
 	initializeStateBonds = (state, flAtoms, lattice) => {
 
-		// dictionary of all bonds - adjacency list might be better
-		let connections = {};
-
+		// initializing adjacency list of bonds
+		let connections = flAtoms.reduce((acc, key) => {acc[key] = {}; return acc;}, {});
+		console.log(connections); // hoisting
 		// initializing InstancedMesh
-		const numBonds 	   = state.atomCount*1.5; // conservative approximate - later reset to exact number
+		const numBonds 	   = state.atomCount*2; // conservative approximate - later reset to exact number
 		const bondGeometry = new CylinderGeometry(0.01, 0.01, 1, 8);
 		const bondMaterial = new MeshStandardMaterial({ color: 0xaaaaaa })
 		const cylinders    = new InstancedMesh(bondGeometry, bondMaterial, numBonds);
@@ -57052,6 +57054,7 @@ class System {
 
 		let visitedAtoms = {};
 		let visitedCells = {};
+		let angleLimit	 = Math.PI/2;
 
 		// fill "connections" and "cylinders" with bonds determined by atom position
 		let bondIndex = 0;
@@ -57064,7 +57067,7 @@ class System {
 			let cell   = lattice.pos2Cell(pos);
 			let cellID = [cell.x, cell.y, cell.z].join(",")
 
-			// skip visited
+			// skip visited cells
 			if (cellID in visitedCells) continue;
 
 			// check for bonds within and between central and local unit cells
@@ -57093,8 +57096,8 @@ class System {
 						
 						const atomB = this.getAtomFromState(b, state);
 
-						// skip visited and self comparison
-						if (atomA.number === atomB.number || [a,b].sort().join("") in connections) continue;
+						// skip self comparison
+						if (atomA.number === atomB.number) continue;
 						
 						// calculate ideal and actual bond distance
 						const pointB   = atomB.pos;
@@ -57106,6 +57109,31 @@ class System {
 
 						// construct derived mesh and set within "cylinders"
 						bondVector.copy(pointB).sub(pointA);
+
+						// determine if potential bond creates an illegal angle
+						let illegalAngle = false;
+						const aBonds = Object.values(connections[a]);
+						const bBonds = Object.values(connections[b]);
+						
+						console.log("A", a);
+						for (const bond of aBonds) {
+							console.log(bond);
+							if (bondVector.angleTo(bond) < angleLimit) {
+								illegalAngle = true;
+								break;
+							}
+						}
+						console.log("B", b);
+						for (const bond of bBonds) {
+							console.log(bond);
+							if (bondVector.angleTo(bond) < angleLimit) {
+								illegalAngle = true;
+								break;
+							}
+						}
+						if (illegalAngle) continue;
+
+
 						const bondLength   = bondVector.length();
 						const bondMidPoint = pointA.clone().addScaledVector(bondVector, 0.5);
 						bondMatrix.identity();
@@ -57118,7 +57146,8 @@ class System {
 						bondIndex++;
 
 						// add bond to "connections"
-						connections[[a,b].sort().join("")] = distance;
+						connections[a][b] = new Vector3().copy(bondVector);
+						connections[b][a] = new Vector3().copy(bondVector);
 					}
 				}
 				visitedAtoms[a] = true;
@@ -57157,15 +57186,17 @@ class System {
 		for (let i = 0; i < unitCellCount; i++) {
 
 			// Get X, Y, Z
-			const x = (i / LD.x) | 0;
-    		const y = (i % LD.x / LD.y) | 0;
-    		const z = (i % LD.x % LD.y); // interesting that LD.z is not needed...
+			const yz = LD.y*LD.z;
+
+			const x  = (i / yz) | 0;
+			const y  = (i % yz / LD.z) | 0;
+			const z  = (i % yz % LD.z);
+
 			const parentUnitCell = new Vector3(x, y, z);
 
 			let localCells = [
 				new Vector3(x  , y,   z), new Vector3(x  , y,   z+1),
 				new Vector3(x  , y+1, z), new Vector3(x  , y+1, z+1),
-
 				new Vector3(x+1, y,   z), new Vector3(x+1, y,   z+1),
 				new Vector3(x+1, y+1, z), new Vector3(x+1, y+1, z+1)
 			];
@@ -57561,7 +57592,7 @@ document.getElementById('browse-pdb').onchange = function() {
 		atomicSystem = new System(SCRA);
 
 		// loadSeqInfo(seqInfo);
-		unitCells = drawLattice(atomicSystem.stateObjects[1]["lattice"]);
+		unitCells = drawLattice(atomicSystem.stateObjects[0]["lattice"]);
 
 		if (performance.memory) {
 			console.log(`Used JS heap size: ${performance.memory.usedJSHeapSize / 1024 / 1024} MB`);
