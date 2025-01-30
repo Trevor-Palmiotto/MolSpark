@@ -56777,7 +56777,7 @@ class Lattice {
 
 		// container for position IDs grouped by unit cell
 		this.xyz	    = Array.from({ length: x }, () => Array.from({ length: y }, () => Array.from({ length: z }, () => [])));
-
+		this.dimensions = new Vector3(x, y, z);
 		this.unitLength = unitLength;
 		this.minXYZ 	= minXYZ;
 		this.maxXYZ 	= maxXYZ;
@@ -56796,7 +56796,7 @@ class Lattice {
 	pos2Cell = (pos) => {return new Vector3().copy(pos).sub(this.minXYZ).divideScalar(this.unitLength).floor()};
 
 	// check if a given unit cell coordinates is bounded by lattice
-	isBounded = (cell) => {return this.xyz?.[cell.x]?.[cell.y]?.[cell.z] !== undefined;}
+	boundsCell = (cell) => {return this.xyz?.[cell.x]?.[cell.y]?.[cell.z] !== undefined;}
 };
 
 class System {
@@ -56903,7 +56903,7 @@ class System {
 		let connections = {};
 
 		// initializing InstancedMesh
-		const numBonds 	   = state.atomCount*1.5; // conservative, but clippable at end
+		const numBonds 	   = state.atomCount*1.5; // conservative approximate - later reset to exact number
 		const bondGeometry = new CylinderGeometry(0.01, 0.01, 1, 8);
 		const bondMaterial = new MeshStandardMaterial({ color: 0xaaaaaa })
 		const cylinders    = new InstancedMesh(bondGeometry, bondMaterial, numBonds);
@@ -56928,9 +56928,9 @@ class System {
 
 		let visitedAtoms = {};
 		let visitedCells = {};
-
+		let ctr = 0;
 		// fill "connections" and "cylinders" with bonds determined by atom position
-		let index    	 = 0;
+		let bondIndex = 0;
 		for (const atomKey of flAtoms) {
 
 			// skip visited
@@ -56958,18 +56958,20 @@ class System {
 					let localCellID = [localCell.x, localCell.y, localCell.z].join(","); // If ID conversion is done often, make into makeID()
 
 					// skip visited or illegal unit cells
-					if (!lattice.isBounded(localCell) || localCellID in visitedCells) continue;
+					if (!lattice.boundsCell(localCell) || localCellID in visitedCells) continue;
 
 					let localAtoms = lattice.get(localCell);
 
+					if (localAtoms.length === 0) continue;
+
 					// iterate through atoms in local unit cell
 					for (const b of localAtoms) {
-
+						
 						const atomB = this.getAtomFromState(b, state);
 
 						// skip visited and self comparison
 						if (atomA.number === atomB.number || [a,b].sort().join("") in connections) continue;
-
+						ctr++;
 						// calculate ideal and actual bond distance
 						const pointB   = atomB.pos;
 						const ideal    = 0.5 * ((atomic_models[atomA.type]["radius"]) + (atomic_models[atomB.type]["radius"]));
@@ -56987,9 +56989,9 @@ class System {
 						bondMatrix.multiply(new Matrix4().makeRotationX(Math.PI / 2));
 						bondMatrix.setPosition(bondMidPoint);
 						bondMatrix.scale(new Vector3(1, bondLength, 1));
-						cylinders.setMatrixAt(index, bondMatrix);
+						cylinders.setMatrixAt(bondIndex, bondMatrix);
 
-						index++;
+						bondIndex++;
 
 						// add bond to "connections"
 						connections[[a,b].sort().join("")] = distance;
@@ -56999,11 +57001,105 @@ class System {
 			}
 			visitedCells[cellID] = true;
 		}
-		
-		cylinders.count = index;
+
+		cylinders.count = bondIndex;
 
 		return [cylinders, connections];
-	}
+	};
+
+	initializeStateBonds2 = (state, flAtoms, lattice) => {
+
+		// dictionary of all bonds
+		let connections = {};
+
+		// initializing InstancedMesh
+		const numBonds 	   = state.atomCount*1.5; // conservative approximate - later reset to exact number of bonds
+		const bondGeometry = new CylinderGeometry(0.01, 0.01, 1, 8);
+		const bondMaterial = new MeshStandardMaterial({ color: 0xaaaaaa })
+		const cylinders    = new InstancedMesh(bondGeometry, bondMaterial, numBonds);
+
+		// Helper objects for positioning and rotating
+		const bondMatrix = new Matrix4();
+		const bondVector = new Vector3();
+		const threshold  = 0.05;
+
+		// array of unit cell offsets
+		const LD			= lattice.dimensions;
+		const unitCellCount = LD.x*LD.y*LD.z;
+
+		// determine bonds and fill appropriate objects (connections, cylinders)
+		let bondIndex = 0;
+		let ctr = 0;
+		for (let i = 0; i < unitCellCount; i++) {
+
+			// Get X, Y, Z
+			const x = (i / LD.x) | 0;
+    		const y = (i % LD.x / LD.y) | 0;
+    		const z = (i % LD.x % LD.y); // interesting that LD.z is not needed...
+			const parentUnitCell = new Vector3(x, y, z);
+
+			let localCells = [
+				new Vector3(x  , y,   z), new Vector3(x  , y,   z+1),
+				new Vector3(x  , y+1, z), new Vector3(x  , y+1, z+1),
+
+				new Vector3(x+1, y,   z), new Vector3(x+1, y,   z+1),
+				new Vector3(x+1, y+1, z), new Vector3(x+1, y+1, z+1)
+			];
+
+			let localAtoms = localCells.map((cell) => ((lattice.boundsCell(cell))? lattice.get(cell): [])).flat();
+			if (localAtoms.length === 0) continue;
+			console.log(localAtoms.length);
+
+			for (const aID_a of localAtoms) {
+
+				// Loading atomA information
+				const atomA = this.getAtomFromState(aID_a, state);
+				const posA  = atomA.pos;
+
+				for (const aID_b of localAtoms) {
+
+					if (aID_a === aID_b) continue;
+					ctr++;
+					// Loading atomB information
+					const atomB = this.getAtomFromState(aID_b, state);
+					const posB  = atomB.pos;
+					// calculate ideal and actual bond distance
+					const ideal    = 0.5 * ((atomic_models[atomA.type]["radius"]) + (atomic_models[atomB.type]["radius"]));
+					const distance = posA.distanceTo(posB);
+
+					// check if bond is within ideal threshold
+					if (Math.abs(ideal-distance) > threshold) continue;
+
+					// calculate bond direction
+					bondVector.copy(posB).sub(posA);
+
+					// calculate bond positioning
+					const bondLength   = bondVector.length();
+					const bondMidPoint = posA.clone().addScaledVector(bondVector, 0.5);
+
+					// calculate positioning in mesh
+					bondMatrix.identity();
+					bondMatrix.lookAt(posA, posB, new Vector3(0, 1, 0));
+					bondMatrix.multiply(new Matrix4().makeRotationX(Math.PI / 2));
+					bondMatrix.setPosition(bondMidPoint);
+					bondMatrix.scale(new Vector3(1, bondLength, 1));
+
+					// set positioning in mesh
+					cylinders.setMatrixAt(bondIndex, bondMatrix);
+
+					bondIndex++;
+
+					// add bond to connections
+					connections[[aID_a, aID_b].sort().join("")] = distance;					
+				}
+			}
+		}
+
+		// reset count to exact number of bonds
+		cylinders.count = bondIndex;
+		console.log("-------->", ctr);
+		return [cylinders, connections];
+	};
 
 	// adds spheres and cylinders from the indexed state to the scene
 	loadState = (index) => {
@@ -57047,7 +57143,7 @@ scene.background   = new Color( 0x000000 );
 scene.fog          = new Fog( 0xFFFFFFF, 10, 200 ); // fog depth will eventually be scrollable? with a key input (mousewheel), have button to toggle between mouse and keypad
 
 pointLight.position.set( 0, 10, 0 );
-scene.add(pointLight, ambientLight, gridHelper);
+scene.add(pointLight, ambientLight);
 renderer.setPixelRatio( window.devicePixelRatio );
 renderer.setSize( window.innerWidth, window.innerHeight );
 camera.position.set( 1, 1, 1 );
@@ -57342,7 +57438,7 @@ document.getElementById('browse-pdb').onchange = function() {
 		atomicSystem = new System(SCRA);
 
 		// loadSeqInfo(seqInfo);
-		// unitCells = drawLattice(lattice);
+		unitCells = drawLattice(atomicSystem.stateObjects[1]["lattice"]);
 
 		if (performance.memory) {
 			console.log(`Used JS heap size: ${performance.memory.usedJSHeapSize / 1024 / 1024} MB`);
