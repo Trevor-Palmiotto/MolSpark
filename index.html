@@ -56781,12 +56781,111 @@ class Lattice {
 		this.unitLength = unitLength;
 		this.minXYZ 	= minXYZ;
 		this.maxXYZ 	= maxXYZ;
+		console.log(this.dimensions);
+
+		this.electronegativities = {
+			F:  3.98,
+			O:  3.44,
+			CL: 3.16,
+			N:  3.04,
+			KR: 3,
+			BR: 2.96,
+			I:  2.66,
+			XE: 2.6,
+			S:  2.58,
+			C:  2.55,
+			SE: 2.55,
+			AU: 2.54,
+			W:  2.36,
+			PB: 2.33,
+			PT: 2.28,
+			RH: 2.28,
+			RU: 2.2,
+			PD: 2.2,
+			OS: 2.2,
+			AT: 2.2,
+			IR: 2.2,
+			H:  2.2,
+			P:  2.19,
+			AS: 2.18,
+			MO: 2.16,
+			TE: 2.1,
+			SB: 2.05,
+			B:  2.04,
+			BI: 2.02,
+			GE: 2.01,
+			PO: 2,
+			HG: 2,
+			SN: 1.96,
+			AG: 1.93,
+			CO: 1.91,
+			RE: 1.9,
+			SI: 1.9,
+			TC: 1.9,
+			CU: 1.9,
+			NI: 1.88,
+			FE: 1.83,
+			GA: 1.81,
+			IN: 1.78,
+			CD: 1.69,
+			CR: 1.66,
+			ZN: 1.65,
+			V:  1.63,
+			TL: 1.62,
+			AL: 1.61,
+			NB: 1.6,
+			BE: 1.57,
+			MN: 1.55,
+			TI: 1.54,
+			PA: 1.5,
+			TA: 1.5,
+			U:  1.38,
+			NP: 1.36,
+			SC: 1.36,
+			ZR: 1.33,
+			MG: 1.31,
+			HF: 1.3,
+			ES: 1.3,
+			FM: 1.3,
+			CF: 1.3,
+			MD: 1.3,
+			NO: 1.3,
+			LR: 1.3,
+			BK: 1.3,
+			CM: 1.3,
+			AM: 1.3,
+			TH: 1.3,
+			PU: 1.28,
+			LU: 1.27,
+			TM: 1.25,
+			ER: 1.24,
+			HO: 1.23,
+			DY: 1.22,
+			Y:  1.22,
+			GD: 1.2,
+			SM: 1.17,
+			ND: 1.14,
+			PR: 1.13,
+			CE: 1.12,
+			LA: 1.1,
+			AC: 1.1,
+			CA: 1,
+			LI: 0.98,
+			SR: 0.95,
+			NA: 0.93,
+			RA: 0.9,
+			BA: 0.89,
+			K:  0.82,
+			RB: 0.82,
+			CS: 0.79,
+			FR: 0.7,
+		};
 	};
 
 	// add value to proper unit cell based on position
-	set = (pos, value) => {
+	set = (pos, value, type) => {
 		let cell = this.pos2Cell(pos);
-		this.xyz[ cell.x ][ cell.y ][ cell.z ].push(value);
+		this.xyz[ cell.x ][ cell.y ][ cell.z ].push([value, this.electronegativities[type]]); // might have problem?
 	};
 
 	// get cell IDs from lattice
@@ -56797,6 +56896,27 @@ class Lattice {
 
 	// check if a given unit cell coordinates is bounded by lattice
 	boundsCell = (cell) => {return this.xyz?.[cell.x]?.[cell.y]?.[cell.z] !== undefined;}
+
+	// order unit cell atoms by electronegativity
+	orderUnitCells = () => {
+
+		let unitCellCount = this.dimensions.x*this.dimensions.y*this.dimensions.z;
+		
+		for (let i = 0; i < unitCellCount; i++) {
+		
+			// Get X, Y, Z
+			const yz = this.dimensions.y*this.dimensions.z;
+			const x  = (i / yz) | 0;
+			const y  = (i % yz / this.dimensions.z) | 0;
+			const z  = (i % yz % this.dimensions.z); // interesting that z is not needed...
+			
+			const parentUnitCell = new Vector3(x, y, z);
+			
+			// order by electronegativity, then extract only aIDs
+			this.xyz[x][y][z] = this.xyz[x][y][z].sort((a, b) => b[1] - a[1]).map(entry => entry[0]);
+
+		}
+	}
 };
 
 class System {
@@ -56821,6 +56941,8 @@ class System {
 			let state = this.SCRA.s[sID];
 
 			const [spheres, lattice, flAtoms] = this.initializeStateAtoms(state);
+			lattice.orderUnitCells();
+			console.log(lattice);
 			this.stateObjects[sID]["spheres"] = spheres;
 			this.stateObjects[sID]["lattice"] = lattice;
 			this.stateObjects[sID]["flAtoms"] = flAtoms;
@@ -56885,13 +57007,15 @@ class System {
 					spheres.setColorAt (index, color);
 
 					let atomKey = [cID, rID, aID].join(",");
-					lattice.set(pos, atomKey);
+
+					lattice.set(pos, atomKey, atom.type);
 					flAtoms.push(atomKey);
 
 					index++;
 				}
 			}
 		}
+
 		spheres.frustumCulled = true; // might do nothing
 		return [spheres, lattice, flAtoms];
 	};
@@ -56928,7 +57052,7 @@ class System {
 
 		let visitedAtoms = {};
 		let visitedCells = {};
-		let ctr = 0;
+
 		// fill "connections" and "cylinders" with bonds determined by atom position
 		let bondIndex = 0;
 		for (const atomKey of flAtoms) {
@@ -56971,7 +57095,7 @@ class System {
 
 						// skip visited and self comparison
 						if (atomA.number === atomB.number || [a,b].sort().join("") in connections) continue;
-						ctr++;
+						
 						// calculate ideal and actual bond distance
 						const pointB   = atomB.pos;
 						const ideal    = 0.5 * ((atomic_models[atomA.type]["radius"]) + (atomic_models[atomB.type]["radius"]));
@@ -57127,7 +57251,6 @@ const loadSeqInfo = (seqInfo) => {
 	}
 	document.getElementById("sequence").innerHTML = seqString;
 	document.querySelectorAll('#sequence').forEach(function(v, i, a) {v.classList.add('show'); v.classList.remove('hide')})
-
 };
 
 // ------------------------ THREE.JS INITIALIZATIONS ------------------------
