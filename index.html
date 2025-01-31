@@ -56768,7 +56768,7 @@ const atomic_models = {
     "OG" : { 'z': 118, "radius": 0.400, "color": 0x000000 },
 };
 
-var atomicSystem, SCRA, unitCells;
+var atomicSystem, SCRA, unitCells, seqInfo;
 
 // contains a list IDs in unit cells of a 3D lattice for accession and restricted space searching
 class Lattice {
@@ -56781,7 +56781,6 @@ class Lattice {
 		this.unitLength = unitLength;
 		this.minXYZ 	= minXYZ;
 		this.maxXYZ 	= maxXYZ;
-		console.log(this.dimensions);
 
 		this.electronegativities = {
 			F:  3.98,
@@ -57027,7 +57026,7 @@ class System {
 
 		// initializing adjacency list of bonds
 		let connections = flAtoms.reduce((acc, key) => {acc[key] = {}; return acc;}, {});
-		console.log(connections); // hoisting
+		// console.log(connections); // hoisting
 		// initializing InstancedMesh
 		const numBonds 	   = state.atomCount*2; // conservative approximate - later reset to exact number
 		const bondGeometry = new CylinderGeometry(0.01, 0.01, 1, 8);
@@ -57037,7 +57036,7 @@ class System {
 		// Helper objects for positioning and rotating
 		const bondMatrix = new Matrix4();
 		const bondVector = new Vector3();
-		const threshold  = 0.05;
+		const threshold  = 0.042;
 
 		// array of unit cell offsets
 		const offsets  = [
@@ -57060,99 +57059,95 @@ class System {
 		let bondIndex = 0;
 		for (const atomKey of flAtoms) {
 
-			// skip visited
+			// skip visited atoms
 			if (atomKey in visitedAtoms) continue;
 
-			let pos    = this.getAtomFromState(atomKey, state).pos;
-			let cell   = lattice.pos2Cell(pos);
-			let cellID = [cell.x, cell.y, cell.z].join(",")
+			let pos          = this.getAtomFromState(atomKey, state).pos;
+			let parentCell   = lattice.pos2Cell(pos);
+			let parentCellID = [parentCell.x, parentCell.y, parentCell.z].join(",");
 
-			// skip visited cells
-			if (cellID in visitedCells) continue;
+			// skip visited cells - this is redundant? due to above continue
+			if (parentCellID in visitedCells) continue;
 
-			// check for bonds within and between central and local unit cells
-			let cellAtoms = lattice.get(cell);
-			for (const a of cellAtoms) {
+			let parentAtoms = lattice.get(parentCell);
 
-				const atomA	   = this.getAtomFromState(a, state);
-				const pointA   = atomA.pos;
+			// --- Calls drastically reduced by iterating parentAtoms within localCell iteration
 
-				// iterate over the 27 local unit cells
-				let i = 0;
-				for (let i = 0; i < offsets.length; i++) {
+			// iterate over the 27 local unit cells
+			let i = 0;
+			for (let i = 0; i < offsets.length; i++) {
 
-					let localCell   = new Vector3().copy(cell).add(offsets[i]);
-					let localCellID = [localCell.x, localCell.y, localCell.z].join(","); // If ID conversion is done often, make into makeID()
+				let localCell   = new Vector3().copy(parentCell).add(offsets[i]);
+				let localCellID = [localCell.x, localCell.y, localCell.z].join(",");
 
-					// skip visited or illegal unit cells
-					if (!lattice.boundsCell(localCell) || localCellID in visitedCells) continue;
+				// skip visited or illegal unit cells
+				if (!lattice.boundsCell(localCell) || localCellID in visitedCells) continue;
 
-					let localAtoms = lattice.get(localCell);
+				let localAtoms = lattice.get(localCell);
+				if (localAtoms.length === 0) continue;
+				
+				// iterate through atoms in parent unit cell
+				for (const a of parentAtoms) {
 
-					if (localAtoms.length === 0) continue;
+					const atomA	   = this.getAtomFromState(a, state);
+					const posA   = atomA.pos;
+
+					// Skip Hydrogens that already are bonded
+					if (atomA.type === "H" && Object.keys(connections[a]).length !== 0) continue
 
 					// iterate through atoms in local unit cell
 					for (const b of localAtoms) {
 						
 						const atomB = this.getAtomFromState(b, state);
-
+						// Skip Hydrogens that already are bonded
+						if (atomB.type === "H" && Object.keys(connections[b]).length !== 0) continue
 						// skip self comparison
-						if (atomA.number === atomB.number) continue;
+						if (atomA.number === atomB.number || connections[a][b] !== undefined) continue;
 						
 						// calculate ideal and actual bond distance
-						const pointB   = atomB.pos;
+						const posB   = atomB.pos;
 						const ideal    = 0.5 * ((atomic_models[atomA.type]["radius"]) + (atomic_models[atomB.type]["radius"]));
-						const distance = pointA.distanceTo(pointB);
-						
+						const distance = posA.distanceTo(posB);
+
 						// bond constraint
 						if (Math.abs(ideal-distance) > threshold) continue;
 
-						// construct derived mesh and set within "cylinders"
-						bondVector.copy(pointB).sub(pointA);
-
+						bondVector.copy(posB).sub(posA);
+						
 						// determine if potential bond creates an illegal angle
 						let illegalAngle = false;
+
 						const aBonds = Object.values(connections[a]);
 						const bBonds = Object.values(connections[b]);
-						
-						console.log("A", a);
-						for (const bond of aBonds) {
-							console.log(bond);
-							if (bondVector.angleTo(bond) < angleLimit) {
-								illegalAngle = true;
-								break;
-							}
-						}
-						console.log("B", b);
-						for (const bond of bBonds) {
-							console.log(bond);
-							if (bondVector.angleTo(bond) < angleLimit) {
-								illegalAngle = true;
-								break;
-							}
-						}
+
+						// Check for invalid bond angles - More linear to keep these loops separate
+						for (const bond of aBonds) {if (bondVector.angleTo(bond) < angleLimit) {illegalAngle = true; break;}}
+						for (const bond of bBonds) {if (Math.PI - bondVector.angleTo(bond) < angleLimit) {illegalAngle = true; break;}}
+
 						if (illegalAngle) continue;
-
-
+						
+						// construct derived mesh and set within InstancedMesh (cylinders)
 						const bondLength   = bondVector.length();
-						const bondMidPoint = pointA.clone().addScaledVector(bondVector, 0.5);
+						const bondMidPoint = posA.clone().addScaledVector(bondVector, 0.5);
+
 						bondMatrix.identity();
-						bondMatrix.lookAt(pointA, pointB, new Vector3(0, 1, 0));
+						bondMatrix.lookAt(posA, posB, new Vector3(0, 1, 0));
 						bondMatrix.multiply(new Matrix4().makeRotationX(Math.PI / 2));
 						bondMatrix.setPosition(bondMidPoint);
 						bondMatrix.scale(new Vector3(1, bondLength, 1));
+
 						cylinders.setMatrixAt(bondIndex, bondMatrix);
 
 						bondIndex++;
 
 						// add bond to "connections"
 						connections[a][b] = new Vector3().copy(bondVector);
-						connections[b][a] = new Vector3().copy(bondVector);
+						connections[b][a] = new Vector3().copy(bondVector).multiplyScalar(-1);
 					}
+					visitedAtoms[a] = true;
 				}
-				visitedAtoms[a] = true;
 			}
-			visitedCells[cellID] = true;
+			visitedCells[parentCellID] = true;
 		}
 
 		cylinders.count = bondIndex;
@@ -57160,100 +57155,8 @@ class System {
 		return [cylinders, connections];
 	};
 
+	// This might eventually be the optimal lattice search approach
 	initializeStateBonds2 = (state, flAtoms, lattice) => {
-
-		// dictionary of all bonds
-		let connections = {};
-
-		// initializing InstancedMesh
-		const numBonds 	   = state.atomCount*1.5; // conservative approximate - later reset to exact number of bonds
-		const bondGeometry = new CylinderGeometry(0.01, 0.01, 1, 8);
-		const bondMaterial = new MeshStandardMaterial({ color: 0xaaaaaa })
-		const cylinders    = new InstancedMesh(bondGeometry, bondMaterial, numBonds);
-
-		// Helper objects for positioning and rotating
-		const bondMatrix = new Matrix4();
-		const bondVector = new Vector3();
-		const threshold  = 0.05;
-
-		// array of unit cell offsets
-		const LD			= lattice.dimensions;
-		const unitCellCount = LD.x*LD.y*LD.z;
-
-		// determine bonds and fill appropriate objects (connections, cylinders)
-		let bondIndex = 0;
-		let ctr = 0;
-		for (let i = 0; i < unitCellCount; i++) {
-
-			// Get X, Y, Z
-			const yz = LD.y*LD.z;
-
-			const x  = (i / yz) | 0;
-			const y  = (i % yz / LD.z) | 0;
-			const z  = (i % yz % LD.z);
-
-			const parentUnitCell = new Vector3(x, y, z);
-
-			let localCells = [
-				new Vector3(x  , y,   z), new Vector3(x  , y,   z+1),
-				new Vector3(x  , y+1, z), new Vector3(x  , y+1, z+1),
-				new Vector3(x+1, y,   z), new Vector3(x+1, y,   z+1),
-				new Vector3(x+1, y+1, z), new Vector3(x+1, y+1, z+1)
-			];
-
-			let localAtoms = localCells.map((cell) => ((lattice.boundsCell(cell))? lattice.get(cell): [])).flat();
-			if (localAtoms.length === 0) continue;
-			console.log(localAtoms.length);
-
-			for (const aID_a of localAtoms) {
-
-				// Loading atomA information
-				const atomA = this.getAtomFromState(aID_a, state);
-				const posA  = atomA.pos;
-
-				for (const aID_b of localAtoms) {
-
-					if (aID_a === aID_b) continue;
-					ctr++;
-					// Loading atomB information
-					const atomB = this.getAtomFromState(aID_b, state);
-					const posB  = atomB.pos;
-					// calculate ideal and actual bond distance
-					const ideal    = 0.5 * ((atomic_models[atomA.type]["radius"]) + (atomic_models[atomB.type]["radius"]));
-					const distance = posA.distanceTo(posB);
-
-					// check if bond is within ideal threshold
-					if (Math.abs(ideal-distance) > threshold) continue;
-
-					// calculate bond direction
-					bondVector.copy(posB).sub(posA);
-
-					// calculate bond positioning
-					const bondLength   = bondVector.length();
-					const bondMidPoint = posA.clone().addScaledVector(bondVector, 0.5);
-
-					// calculate positioning in mesh
-					bondMatrix.identity();
-					bondMatrix.lookAt(posA, posB, new Vector3(0, 1, 0));
-					bondMatrix.multiply(new Matrix4().makeRotationX(Math.PI / 2));
-					bondMatrix.setPosition(bondMidPoint);
-					bondMatrix.scale(new Vector3(1, bondLength, 1));
-
-					// set positioning in mesh
-					cylinders.setMatrixAt(bondIndex, bondMatrix);
-
-					bondIndex++;
-
-					// add bond to connections
-					connections[[aID_a, aID_b].sort().join("")] = distance;					
-				}
-			}
-		}
-
-		// reset count to exact number of bonds
-		cylinders.count = bondIndex;
-		console.log("-------->", ctr);
-		return [cylinders, connections];
 	};
 
 	// adds spheres and cylinders from the indexed state to the scene
@@ -57305,92 +57208,136 @@ camera.position.set( 1, 1, 1 );
 
 
 // -------------------- MOUSE-ATOM INTERACTION --------------------
-var mouse, scroll_ctr, y_start;
-var dragObject     = null;
-var scroll_rate    = 0.25;
-var raycaster      = new Raycaster();
-var plane          = new Plane();
-var planeIntersect = new Vector3(); // point of intersection with the plane
-var pointIntersect = new Vector3(); // point of intersection with an object (plane's point)
-var shift          = new Vector3(); // distance between position of an object and points of intersection with the object
-const plane_normal = new Vector3( 0, 1, 0 ); // plane's normal
 
-// document.addEventListener('pointerdown', function(e) {
+// Helpful variables for mouse interaction
+let allowSystemMovement = false;
+let mouse, yStart, scrollValue = 0, dragMesh = null;
+const scrollRate = 0.05, raycaster = new Raycaster(), plane = new Plane();
+const planeIntersect = new Vector3(), pointIntersect = new Vector3(), shift = new Vector3();
+const planeNormal = new Vector3(0, 1, 0), dragMeshOrigin = new Vector3();
 
-// 	var intersects = raycaster.intersectObjects( scene.children );
-	
-// 	scroll_ctr = 0;
-// 	for ( let i = 0; i < intersects.length; i++ ) {
-// 		if (intersects[i].object.type == "Mesh") {
-// 			controller.Disable()
-// 			pointIntersect.copy(intersects[i].point);
-// 			plane.setFromNormalAndCoplanarPoint(plane_normal, pointIntersect);
-// 			shift.subVectors(intersects[i].object.position, intersects[i].point);
-// 			dragObject = intersects[i].object;
-// 			y_start = dragObject.position.y;
-// 			break;
-// 		}
-// 	}
-// });
+// allow movement of system components
+document.addEventListener("keydown", (e) => e.key === "Shift" && (allowSystemMovement = true));
+document.addEventListener("keyup", () => (allowSystemMovement = false));
 
-// document.addEventListener('wheel', e => {
-//   if (dragObject != null) {
-//     dragObject.position.y += scroll_rate*(Number(e.deltaY > 0)*2-1);
-//     scroll_ctr += (Number(e.deltaY > 0)*2-1);
-//   }
-// });
-// document.addEventListener("pointermove", e => {
-//   mouse = new Vector2( ( e.clientX / window.innerWidth ) * 2 - 1, -( e.clientY / window.innerHeight ) * 2 + 1 );
-//   raycaster.setFromCamera(mouse, camera);
-//   if (dragObject) {
-//     raycaster.ray.intersectPlane(plane, planeIntersect);
-//     dragObject.position.addVectors(planeIntersect, shift);
-//     dragObject.position.y = y_start + scroll_rate*scroll_ctr
-//   }
-// });
-// document.addEventListener("pointerup", () => {
-// 	dragObject = null; controller.Enable()
-// });
-// ----------------------------------------------------------------
+// handle conditional selections
+document.addEventListener("pointerdown", (e) => {
+    
+	if (allowSystemMovement) {
+		// get objects that intersect ray
+		let intersects = raycaster.intersectObjects(scene.children);
 
+		// select the intersected object
+		for (let i = 0; i < intersects.length; i++) {
+			if (intersects[i].object.type === "Mesh") {
 
-const updateFPS = (fps) => { document.getElementById('fps').innerText = "FPS: ".concat(String(fps)) };
+				// calculating the plane of movement
+				controller.Disable();
+				pointIntersect.copy(intersects[i].point);
+				dragMeshOrigin.copy(intersects[i].object.position)
+				plane.setFromNormalAndCoplanarPoint(planeNormal, pointIntersect);
+				shift.subVectors(dragMeshOrigin, pointIntersect);
 
-var ctr = 0; 
-let lastFrameTime = performance.now();
-let frameCount = 0;
-let fps = 0;
-const animate = () => {
-	requestAnimationFrame( animate );
-	const now = performance.now();
-    const delta = now - lastFrameTime;
-    frameCount++;
-	if (delta >= 1000) { // Update every second
-		fps = frameCount;
-		updateFPS(fps);
-		frameCount = 0;
-		lastFrameTime = now;
+				// set mesh to drag
+				dragMesh = intersects[i].object;
+				yStart   = dragMeshOrigin.y;
+				break;
+			}
+		}
 	}
-	renderer.render( scene, camera );
-	controller.Update();
-}; animate();
+});
 
+// adjusts the height stored - and sets
+document.addEventListener("wheel", (e) => {
+    if (dragMesh) {
 
-let stateCounter = 0;
+		// update position vectors and scroll based on scroll direction
+		dragMesh.position.y += (e.deltaY > 0 ? 1 : -1) * scrollRate;
+		dragMeshOrigin.y 	+= (e.deltaY > 0 ? 1 : -1) * scrollRate;
+		scrollValue 		+= (e.deltaY > 0 ? 1 : -1);
+		shift.subVectors(dragMeshOrigin, pointIntersect);
+	}
+});
+
+// adjust dragMesh position
+document.addEventListener("pointermove", (e) => {
+	// NOTE: The plane of movement is defined in "pointerdown"
+	
+	// get mouse position
+    mouse = new Vector2((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+    
+	// set raycaster position and direction
+	raycaster.setFromCamera(mouse, camera);
+    if (dragMesh) {
+		
+		// lock the controller in place
+		controller.Disable();
+
+		// set new object position
+        raycaster.ray.intersectPlane(plane, planeIntersect);
+        dragMesh.position.addVectors(planeIntersect, shift);
+    }
+});
+
+document.addEventListener("pointerup", () => {
+	dragMesh = null; controller.Enable();
+});
+
+let stateIndex = 0;
 window.addEventListener('keydown', (e) => {
+	
+	// get number of loadable system states
 	let stateCount;
 	if (atomicSystem !== undefined) stateCount = atomicSystem.numStates;
+
 	switch(e.key) {
 		case 'ArrowRight':
-			if (stateCounter >= 0 && stateCounter < stateCount) atomicSystem.loadState(stateCounter);
-			if (stateCounter+1 < stateCount) stateCounter++;
+			// go to the next state
+			stateIndex = clamp(stateIndex+1, 0, stateCount-1);
+			atomicSystem.loadState(stateIndex);
 			break;
+	
 		case 'ArrowLeft':
-			if (stateCounter >= 0 && stateCounter < stateCount) atomicSystem.loadState(stateCounter);
-			if (stateCounter-1 >= 0) stateCounter--;
+			// go to the previous state
+			stateIndex = clamp(stateIndex-1, 0, stateCount-1);
+			atomicSystem.loadState(stateIndex);
 			break;
   	}
 });
+
+// updates the FPS element of the GUI
+const updateFPS = (fps) => { document.getElementById('fps').innerText = "FPS: ".concat(String(fps)) };
+
+// set FPS tracking variables
+let frameCount 	  = 0;
+let lastFrameTime = performance.now(); 
+
+// animation function
+const animate = () => {
+
+	// animation loop
+	requestAnimationFrame( animate );
+	
+	// update timings
+	const now = performance.now();
+    const delta = now - lastFrameTime;
+    frameCount++;
+
+	// Update framerate every second with total frames counted
+	if (delta >= 1000) {
+		updateFPS(frameCount);
+		frameCount = 0;
+		
+		lastFrameTime = now;
+	}
+	
+	// update THREE.JS rendering and controller
+	renderer.render( scene, camera );
+	controller.Update();
+};
+
+// Immediately call after loading - This might be dangerous?
+animate();
 
 
 // ---------------- [ADD -> SYSTEM] IMPLEMENTATION ----------------
@@ -57547,31 +57494,37 @@ const drawLattice = (lattice) => { // probably a way to instancedMesh these
 
 	var unitCells = [];
 	
-	const latticeDimensions = new Vector3().copy(lattice.maxXYZ).sub(lattice.minXYZ).divideScalar(lattice.unitLength).ceil();
-	const unitCellSize      = lattice.unitLength;
+	const LD 			= lattice.dimensions;
+	const unitCellSize  = lattice.unitLength;
+	const unitCellCount = LD.x*LD.y*LD.z;
 	
 	const material  = new LineBasicMaterial({ color: 0xFF0000 });
-	for (let x = 0; x < latticeDimensions.x; x++) {
-		for (let y = 0; y < latticeDimensions.y; y++) {
-			for (let z = 0; z < latticeDimensions.z; z++) {
 
-				if (lattice.xyz?.[x]?.[y]?.[z].length === 0) continue;
+	
+	for (let i = 0; i < unitCellCount; i++) {
+		
+		// Get X, Y, Z
+		const yz = LD.y*LD.z;
+		const x  = (i / yz) | 0;
+		const y  = (i % yz / LD.z) | 0;
+		const z  = (i % yz % LD.z);
 
-				const geometry  = new BoxGeometry(unitCellSize, unitCellSize, unitCellSize);
-				const edges     = new EdgesGeometry(geometry);
-				const wireframe = new LineSegments(edges, material);
-				
-				// Position each cell
-				wireframe.position.set(
-					x * unitCellSize + unitCellSize/2 + lattice.minXYZ.x,
-					y * unitCellSize + unitCellSize/2 + lattice.minXYZ.y,
-					z * unitCellSize + unitCellSize/2 + lattice.minXYZ.z
-				);
-				scene.add(wireframe);
-				unitCells.push(wireframe);
-			}
-		}
-	}
+		if (lattice.xyz?.[x]?.[y]?.[z].length === 0) continue;
+
+		const geometry  = new BoxGeometry(unitCellSize, unitCellSize, unitCellSize);
+		const edges     = new EdgesGeometry(geometry);
+		const wireframe = new LineSegments(edges, material);
+		
+		// Position cell
+		wireframe.position.set(
+			x * unitCellSize + unitCellSize/2 + lattice.minXYZ.x,
+			y * unitCellSize + unitCellSize/2 + lattice.minXYZ.y,
+			z * unitCellSize + unitCellSize/2 + lattice.minXYZ.z
+		);
+
+		scene.add(wireframe);
+		unitCells.push(wireframe);
+	};
 	return unitCells;
 }
 
@@ -57585,15 +57538,21 @@ document.getElementById('browse-pdb').onchange = function() {
 	const reader  = new FileReader(); reader.readAsText(file);
 
 	reader.onload = function() {
-		let seqInfo;
 		const text  = this.result;
 		const lines = text.split('\n');
+
+		// load system
 		[SCRA, seqInfo] = parsePDB(lines);
 		atomicSystem = new System(SCRA);
 
+		// TBD
 		// loadSeqInfo(seqInfo);
-		unitCells = drawLattice(atomicSystem.stateObjects[0]["lattice"]);
+		
+		// display lattice
+		let startState = ((SCRA.s[1] !== undefined)? 1: 0);
+		unitCells = drawLattice(atomicSystem.stateObjects[startState]["lattice"]);
 
+		// show memory usage
 		if (performance.memory) {
 			console.log(`Used JS heap size: ${performance.memory.usedJSHeapSize / 1024 / 1024} MB`);
 			console.log(`Total JS heap size: ${performance.memory.totalJSHeapSize / 1024 / 1024} MB`);
@@ -57602,6 +57561,8 @@ document.getElementById('browse-pdb').onchange = function() {
 		} else {
 			console.log("Performance memory API is not supported in this browser.");
 		}
+
+		// reset element value
 		document.getElementById('browse-pdb').value = "";
 
 	};
@@ -57609,7 +57570,7 @@ document.getElementById('browse-pdb').onchange = function() {
 // ----------------------------------------------------------------
 
 
-// this can be drastically improved wtf is this chatgpt bs
+// drag window - this can be drastically improved wtf is this chatgpt bs
 function dragElement(elmnt) {
 
 	var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
@@ -57736,7 +57697,7 @@ document.getElementById('clear').onclick = function	() {
 	renderer.render( scene, camera );
 	document.getElementById("sequence").innerHTML = "";
 	unitCells   = [];
-	scene.add(pointLight, ambientLight, gridHelper);
+	scene.add(pointLight, ambientLight);
 
 };
 // ----------------------------------------------------------------
