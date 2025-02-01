@@ -56992,6 +56992,7 @@ class System {
 					const atom = resid.a[aID];
 
 					// fetching atom-derived attributes
+					console.log(atom.type);
 					color.set(atomic_models[atom.type]["color"]);
 					let radius = atomic_models[atom.type]["radius"];
 					let pos    = atom.pos;
@@ -57037,7 +57038,7 @@ class System {
 		// Helper objects for positioning and rotating
 		const bondMatrix = new Matrix4();
 		const bondVector = new Vector3();
-		const threshold  = 0.042;
+		const threshold  = 0.042; // ?
 
 		// array of 27 unit cell offsets
 		const offsets  = [
@@ -57055,6 +57056,7 @@ class System {
 		let visitedAtoms = {};
 		let visitedCells = {};
 		let angleLimit	 = Math.PI/2;
+		let totalCellInteractions = 0;
 
 		// fill "connections" and "cylinders" with bonds determined by atom position
 		let bondIndex = 0;
@@ -57086,7 +57088,7 @@ class System {
 
 				let localAtoms = lattice.get(localCell);
 				if (localAtoms.length === 0) continue;
-				
+				totalCellInteractions++;
 				// iterate through atoms in parent unit cell
 				for (const a of parentAtoms) {
 
@@ -57152,7 +57154,7 @@ class System {
 		}
 
 		cylinders.count = bondIndex;
-
+		console.log(totalCellInteractions/(lattice.dimensions.x*lattice.dimensions.y*lattice.dimensions.z));
 		return [cylinders, connections];
 	};
 
@@ -57551,8 +57553,8 @@ document.getElementById('browse-pdb').onchange = function() {
 		// loadSeqInfo(seqInfo);
 		
 		// display lattice
-		let startState = ((SCRA.s[1] !== undefined)? 1: 0);
-		unitCells = drawLattice(atomicSystem.stateObjects[startState]["lattice"]);
+		// let startState = ((SCRA.s[1] !== undefined)? 1: 0);
+		// unitCells = drawLattice(atomicSystem.stateObjects[startState]["lattice"]);
 
 		// show memory usage
 		if (performance.memory) {
