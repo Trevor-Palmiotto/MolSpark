@@ -56882,9 +56882,9 @@ class Lattice {
 	};
 
 	// add value to proper unit cell based on position
-	set = (pos, value, type) => {
-		let cell = this.pos2Cell(pos);
-		this.xyz[ cell.x ][ cell.y ][ cell.z ].push([value, this.electronegativities[type]]); // might have problem?
+	set = (atom, atomKey) => {
+		let cell = this.pos2Cell(atom.pos);
+		this.xyz[ cell.x ][ cell.y ][ cell.z ].push([atomKey, this.electronegativities[atom.type]]); // might have problem?
 	};
 
 	// get cell IDs from lattice
@@ -57007,9 +57007,10 @@ class System {
 					spheres.setMatrixAt(index, matrix);
 					spheres.setColorAt (index, color);
 
-					let atomKey = [cID, rID, aID].join(",");
+					let atomKey = [cID, rID, aID, atom.name].join(",");
 
-					lattice.set(pos, atomKey, atom.type);
+					// set atom position in 
+					lattice.set(atom, atomKey);
 					flAtoms.push(atomKey);
 
 					index++;
@@ -57038,7 +57039,7 @@ class System {
 		const bondVector = new Vector3();
 		const threshold  = 0.042;
 
-		// array of unit cell offsets
+		// array of 27 unit cell offsets
 		const offsets  = [
 			new Vector3(-1, 1,-1), new Vector3(-1, 1, 0), new Vector3(-1, 1, 1),
 			new Vector3( 0, 1,-1), new Vector3( 0, 1, 0), new Vector3( 0, 1, 1),
@@ -57071,7 +57072,7 @@ class System {
 
 			let parentAtoms = lattice.get(parentCell);
 
-			// --- Calls drastically reduced by iterating parentAtoms within localCell iteration
+			// Calls drastically reduced by iterating parentAtoms within localCell iteration
 
 			// iterate over the 27 local unit cells
 			let i = 0;
@@ -57444,7 +57445,7 @@ function parsePDB(lines) {
 				serial: atomSerial,
 				name  : atomName,
 				type  : atomType,
-				pos   : new Vector3(x, y, z)// nanometers
+				pos   : new Vector3(x, y, z) // nanometers
 			};
 			
 			hierarchy?.s[currState]?.center.add(hierarchy.s[sID].c[cID].r[rID].a[atomSerial].pos);
@@ -57492,14 +57493,15 @@ function parsePDB(lines) {
 
 const drawLattice = (lattice) => { // probably a way to instancedMesh these
 
+	// list of LineSegments
 	var unitCells = [];
 	
+	// size calculations
 	const LD 			= lattice.dimensions;
 	const unitCellSize  = lattice.unitLength;
 	const unitCellCount = LD.x*LD.y*LD.z;
 	
 	const material  = new LineBasicMaterial({ color: 0xFF0000 });
-
 	
 	for (let i = 0; i < unitCellCount; i++) {
 		
@@ -57612,6 +57614,7 @@ function dragElement(elmnt) {
 }; 
 dragElement(document.getElementById("atom-window"));
 dragElement(document.getElementById("color-menu"));
+
 
 
 // ----------------- [COLOR MENU] IMPLEMENTATION ------------------
