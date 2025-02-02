@@ -56909,7 +56909,6 @@ class System {
 		if (Object.keys(SCRA.s).length > 1) {delete SCRA.s?.['0'];}
 
 		this.SCRA 	   		   = SCRA;
-		// console.log("Num Chains: ", Object.keys(this.SCRA.s[0].c).length);
 		this.numStates 		   = Object.keys(SCRA.s).length;
 		this.numAtoms  		   = ((this.numStates > 1) ? this.SCRA.s[1].atomCount : this.SCRA.s[0].atomCount);
 		this.stateObjects      = Object.fromEntries(Object.keys(this.SCRA.s).map(state => [state, {"spheres": "", "lattice": "", "flAtoms": "", "cylinders": "", "connections": ""}])) // holds the various InstancedMeshes and lattice
@@ -57001,7 +57000,7 @@ class System {
 			}
 		}
 		spheres.frustumCulled = true; // don't render objects completely outside of the viewing frustum
-		console.log(flAtoms.length);
+
 		return [spheres, lattice, flAtoms];
 	};
 
@@ -57010,7 +57009,7 @@ class System {
 
 		// initializing adjacency list of bonds
 		let connections = flAtoms.reduce((acc, key) => {acc[key] = {}; return acc;}, {});
-		// console.log(connections); // hoisting
+
 		// initializing InstancedMesh
 		const numBonds 	   = state.atomCount*2; // conservative approximate - later reset to exact number
 		const bondGeometry = new CylinderGeometry(0.01, 0.01, 1, 8);
@@ -57040,7 +57039,10 @@ class System {
 		let angleLimit	 = Math.PI/2;
 		let totalAtomInteractions = 0;
 
+		// I am frustrated with how ugly this is. I want to see if it can be improved eventually
+		
 		// fill "connections" and "cylinders" with bonds determined by atom position
+		let start = performance.now();
 		let bondIndex = 0;
 		for (const atomKey of flAtoms) {
 
@@ -57053,62 +57055,84 @@ class System {
 
 			const parentAtoms = lattice.get(parentCell).map(atom => atom[0]);
 
-			// get local atoms
+			// get local atoms (these may require name changes for clarity)
 			const extractedLocalAtoms = [];
+			const unvisitedLocalAtoms = [];
 
+			// get cells based on requirements
 			for (const offset of offsets) {
 				const localCell   = new Vector3().copy(parentCell).add(offset);
 				const localCellID = localCell.toArray().join(",");
 
-				// select valid, unvisited cells
-				if (!(!lattice.boundsCell(localCell) || localCellID in visitedCells)) extractedLocalAtoms.push(lattice.get(localCell));
+				// select valid, unvisited cells for non-hydrogen checks
+				if (!(!lattice.boundsCell(localCell) || localCellID in visitedCells)) unvisitedLocalAtoms.push(lattice.get(localCell));
+				
+				// select all valid cells for hydrogen checks
+				if (lattice.boundsCell(localCell)) extractedLocalAtoms.push(lattice.get(localCell));
 			}
 
 			// removing hydrogens that are already bonded
-			const filteredLocalAtoms = extractedLocalAtoms.flat().filter(atom => !(this.getAtomFromState(atom[0], state).type === "H" && Object.keys(connections[atom[0]]).length > 0));
+			const filteredUnvisitedLocalAtoms = unvisitedLocalAtoms.flat().filter(atom => !(this.getAtomFromState(atom[0], state).type === "H" && Object.keys(connections[atom[0]]).length > 0));
+			const filteredExtractedLocalAtoms = extractedLocalAtoms.flat().filter(atom => !(this.getAtomFromState(atom[0], state).type === "H" && Object.keys(connections[atom[0]]).length > 0));
 
 			// sort atoms by electronegativity
-			const sortedLocalAtoms = filteredLocalAtoms.sort((a, b) => b[1] - a[1]).map(atom => atom[0]);
-
-			// Iterate local atoms through parent atoms
+			const sortedUnvisitedLocalAtoms = filteredUnvisitedLocalAtoms.sort((a, b) => b[1] - a[1]).map(atom => atom[0]);
+			const sortedExtractedLocalAtoms = filteredExtractedLocalAtoms.sort((a, b) => b[1] - a[1]).map(atom => atom[0]);
+			
+			// Iterate parent atoms through local atoms
 			for (const a of parentAtoms) {
 				
 				const atomA	 = this.getAtomFromState(a, state);
 				const posA   = atomA.pos;
 
-				// Skip Hydrogens that already are bonded
-				if (atomA.type === "H" && Object.keys(connections[a]).length !== 0) continue
+				// Skip hydrogens that already are bonded
+				if (atomA.type === "H" && Object.keys(connections[a]).length !== 0) continue;
+				
+				// hydrogens are special, they don't have super well defined bonding so the closest legal atom is its bond partner - might cause weird salt bridges?
+				if (atomA.type === "H") {
 
-				// iterate through atoms in local unit cell
-				for (const b of sortedLocalAtoms) {
+					let closestLegalAtom = [Infinity, ""];
+
+					for (const b of sortedExtractedLocalAtoms) {
 					
-					const atomB = this.getAtomFromState(b, state);
+						const atomB = this.getAtomFromState(b, state);
 
-					// skip self comparison
-					if (atomA.number === atomB.number || connections[a][b] !== undefined) continue;
-					totalAtomInteractions++;
+						// skip pre-existing bonds
+						if (connections[a][b] !== undefined) continue;
+						totalAtomInteractions++;
 
-					// calculate ideal and actual bond distance
-					const posB     = atomB.pos;
-					const ideal    = 0.5 * ((atomic_models[atomA.type]["radius"]) + (atomic_models[atomB.type]["radius"]));
-					const distance = posA.distanceTo(posB);
+						// calculate ideal and actual bond distance
+						const posB     = atomB.pos;
+						const ideal    = 0.5 * ((atomic_models[atomA.type]["radius"]) + (atomic_models[atomB.type]["radius"]));
+						const distance = posA.distanceTo(posB);
 
-					// bond constraint
-					if (Math.abs(ideal-distance) > threshold) continue;
+						if (distance === 0 || distance > closestLegalAtom[0]) continue;
 
-					bondVector.copy(posB).sub(posA);
-					
-					// determine if potential bond creates an illegal angle
-					let illegalAngle = false;
+						// calculate bond orientation
+						bondVector.copy(posB).sub(posA);
+						
+						// determine if potential bond creates an illegal angle
+						let illegalAngle = false;
 
-					const aBonds = Object.values(connections[a]);
-					const bBonds = Object.values(connections[b]);
+						const aBonds = Object.values(connections[a]);
+						const bBonds = Object.values(connections[b]);
 
-					// Check for invalid bond angles - More linear to keep these loops separate
-					for (const bond of aBonds) {if (bondVector.angleTo(bond) < angleLimit) {illegalAngle = true; break;}}
-					for (const bond of bBonds) {if (Math.PI - bondVector.angleTo(bond) < angleLimit) {illegalAngle = true; break;}}
+						// Check for invalid bond angles - More linear to keep these loops separate
+						for (const bond of aBonds) {if (bondVector.angleTo(bond) < angleLimit) {illegalAngle = true; break;}}
+						for (const bond of bBonds) {if (Math.PI - bondVector.angleTo(bond) < angleLimit) {illegalAngle = true; break;}}
 
-					if (illegalAngle) continue;
+						if (illegalAngle) continue;
+
+						// check if b is closest
+						closestLegalAtom = [Math.min(closestLegalAtom[0], distance), ((distance < closestLegalAtom[0]) ? {posB: new Vector3().copy(posB), bondVector: new Vector3().copy(bondVector), b: b} : closestLegalAtom[1])];
+					}
+					if (closestLegalAtom[1] === "") continue;
+
+					// update based on closest
+					bondVector.copy(closestLegalAtom[1].bondVector);
+					const posB = closestLegalAtom[1].posB;
+					const b = closestLegalAtom[1].b;
+
 					// construct derived mesh and set within InstancedMesh (cylinders)
 					const bondLength   = bondVector.length();
 					const bondMidPoint = posA.clone().addScaledVector(bondVector, 0.5);
@@ -57120,19 +57144,71 @@ class System {
 					bondMatrix.scale(new Vector3(1, bondLength, 1));
 
 					cylinders.setMatrixAt(bondIndex, bondMatrix);
-
 					bondIndex++;
 
 					// add bond to "connections"
 					connections[a][b] = new Vector3().copy(bondVector);
 					connections[b][a] = new Vector3().copy(bondVector).multiplyScalar(-1);
+					
+				} else {
+					for (const b of sortedUnvisitedLocalAtoms) {
+					
+						const atomB = this.getAtomFromState(b, state);
+
+						// hydrogens must be the parent atom for proper bond forming
+						if (atomB.type === "H") continue;
+
+						// skip self comparison
+						if ((atomA.number === atomB.number) || connections[a][b] !== undefined) continue;
+						totalAtomInteractions++;
+
+						// calculate ideal and actual bond distance
+						const posB     = atomB.pos;
+						const ideal    = 0.5 * ((atomic_models[atomA.type]["radius"]) + (atomic_models[atomB.type]["radius"]));
+						const distance = posA.distanceTo(posB);
+
+						// bond constraint
+						if (Math.abs(ideal-distance) > threshold) continue;
+
+						bondVector.copy(posB).sub(posA);
+						
+						// determine if potential bond creates an illegal angle
+						let illegalAngle = false;
+
+						const aBonds = Object.values(connections[a]);
+						const bBonds = Object.values(connections[b]);
+
+						// Check for invalid bond angles - More linear to keep these loops separate
+						for (const bond of aBonds) {if (bondVector.angleTo(bond) < angleLimit) {illegalAngle = true; break;}}
+						for (const bond of bBonds) {if (Math.PI - bondVector.angleTo(bond) < angleLimit) {illegalAngle = true; break;}}
+
+						if (illegalAngle) continue;
+
+						// construct derived mesh and set within InstancedMesh (cylinders)
+						const bondLength   = bondVector.length();
+						const bondMidPoint = posA.clone().addScaledVector(bondVector, 0.5);
+
+						bondMatrix.identity();
+						bondMatrix.lookAt(posA, posB, new Vector3(0, 1, 0));
+						bondMatrix.multiply(new Matrix4().makeRotationX(Math.PI / 2));
+						bondMatrix.setPosition(bondMidPoint);
+						bondMatrix.scale(new Vector3(1, bondLength, 1));
+
+						cylinders.setMatrixAt(bondIndex, bondMatrix);
+						bondIndex++;
+
+						// add bond to "connections"
+						connections[a][b] = new Vector3().copy(bondVector);
+						connections[b][a] = new Vector3().copy(bondVector).multiplyScalar(-1);
+					}
 				}
 				visitedAtoms[a] = true;
 			}
 			visitedCells[parentCellID] = true;
 		}
 		cylinders.count = bondIndex;
-		console.log(totalAtomInteractions/flAtoms.length);
+		console.log("Load Time:",((performance.now() - start)/1000).toFixed(2), "s");
+		// console.log(totalAtomInteractions/flAtoms.length);
 		return [cylinders, connections];
 	};
 
