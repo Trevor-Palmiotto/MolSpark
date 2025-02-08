@@ -56922,7 +56922,7 @@ class System {
 
 		for (const sID in this.SCRA.s){
 
-			let state = this.SCRA.s[sID];
+			const state = this.SCRA.s[sID];
 
 			const [spheres, lattice, flAtoms] = this.initializeStateAtoms(state);
 			
@@ -56934,6 +56934,8 @@ class System {
 			this.stateObjects[sID]["cylinders"]   = cylinders;
 			this.stateObjects[sID]["connections"] = connections;
 
+			const backbone = this.initializeStateBackBone(state, connections);
+			// this.
 		}
 	};
 
@@ -57207,14 +57209,61 @@ class System {
 			visitedCells[parentCellID] = true;
 		}
 		cylinders.count = bondIndex;
+		
 		console.log("Load Time:",((performance.now() - start)/1000).toFixed(2), "s");
 		// console.log(totalAtomInteractions/flAtoms.length);
+		
 		return [cylinders, connections];
 	};
 
-	// This might eventually be the optimal lattice search approach
-	initializeStateBonds2 = (state, flAtoms, lattice) => {
-	};
+	// 
+	initializeStateBackBone = (state, connections) => {
+
+		// first find all backbone atoms
+		let backboneAtoms = [];
+		let visitedAtoms   = {};
+
+		// for now, this just finds atoms that connect i -> i+1 residues
+		
+		for (const key in connections) {
+			
+			const chainID   = key.split(",")[0];
+			const resNumber = key.split(",")[1].split(":")[1];
+
+			const bondPartners = connections[key];
+
+			for (const partner in bondPartners) {
+
+				const chainIDPartner   = partner.split(",")[0];
+				const resNumberPartner = partner.split(",")[1].split(":")[1];
+
+				if (chainID === chainIDPartner && Number(resNumber)+1 === Number(resNumberPartner)) {
+					
+					// add as necessary
+					if (!(key in visitedAtoms)) {
+						backboneAtoms.push(this.getAtomFromState(key, state).pos);
+						visitedAtoms[key] = true;
+					}
+					if (!(partner in visitedAtoms)) {
+						backboneAtoms.push(this.getAtomFromState(key, state).pos);
+						visitedAtoms[partner] = true;
+					}
+
+				}
+			}
+
+			
+		}
+
+		const curve = new CatmullRomCurve3(backboneAtoms);
+
+		const geometry = new BufferGeometry().setFromPoints(curve.getPoints(backboneAtoms.length));
+		const material = new LineBasicMaterial({ color: 0xff0000 });
+
+		const curveObject = new Line(geometry, material);
+		scene.add(curveObject);
+		return curveObject;
+	}
 
 	// adds spheres and cylinders from the indexed state to the scene
 	loadState = (index) => {
@@ -57228,6 +57277,10 @@ class System {
 		this.prevSpheres   = spheres
 		this.prevCylinders = cylinders;
 	}
+
+		// This might eventually be the optimal lattice search approach
+	initializeStateBonds2 = (state, flAtoms, lattice) => {
+	};
 
 };
 
@@ -57483,13 +57536,12 @@ function parsePDB(lines) {
 			// resAtomTypes.push(atomName);
 
 			// Set residue key (initialize as necessary)
-			const rID = `${resName}${resSeq}`;
+			const rID = `${resName}:${resSeq}`;
 			if (!hierarchy.s[sID].c[cID].r[rID]) {
 				hierarchy.s[sID].c[cID].r[rID] = {atomCount: 0, residueName: resName, a: {}};
-				if (prevRID != rID && resName !== "HOH") {
 
-					// console.log(resAtomTypes); resAtomTypes = []
-					
+				if (prevRID != rID && resName !== "HOH" && resName !== "O") { // ignore oxygen residues and water
+
 					seqInfo.c[cID] += aminoAcidMap[resName];
 					prevRID = rID;
 			
