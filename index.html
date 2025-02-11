@@ -56645,6 +56645,9 @@ class CameraController {
     };
 };
 
+// class RibbonGeometry extends TubeGeometry {}
+
+
 // ------------------- DEPENDENCIES DONE -------------------
 // atomic radius in nanometers -> eventually to covalent radii
 const atomic_models = {
@@ -57220,15 +57223,17 @@ class System {
 	initializeStateBackBone = (state, connections) => {
 
 		// first find all backbone atoms
-		let backboneAtoms = [];
+		let backboneAtoms = {};
 		let visitedAtoms   = {};
 
 		// for now, this just finds atoms that connect i -> i+1 residues
 		
 		for (const key in connections) {
 			
-			const chainID   = key.split(",")[0];
+			const chainID   = key.split(",")[0];	
 			const resNumber = key.split(",")[1].split(":")[1];
+
+			if (!(chainID in backboneAtoms)) backboneAtoms[chainID] = [];
 
 			const bondPartners = connections[key];
 
@@ -57241,11 +57246,11 @@ class System {
 					
 					// add as necessary
 					if (!(key in visitedAtoms)) {
-						backboneAtoms.push(this.getAtomFromState(key, state).pos);
+						backboneAtoms[chainID].push(this.getAtomFromState(key, state).pos);
 						visitedAtoms[key] = true;
 					}
 					if (!(partner in visitedAtoms)) {
-						backboneAtoms.push(this.getAtomFromState(partner, state).pos);
+						backboneAtoms[chainID].push(this.getAtomFromState(partner, state).pos);
 						visitedAtoms[partner] = true;
 					}
 
@@ -57256,78 +57261,69 @@ class System {
 		}
 
 		// initializing InstancedMesh
-		const radSegments = 8;
-		const numSegments = backboneAtoms.length*5;
-		const geometry    = new CylinderGeometry(0.01, 0.01, 1, 8);
-		const material    = new MeshStandardMaterial({ color: 0xFF0000 })
-		const ribbon      = new InstancedMesh(geometry, material, numSegments);
-
-		const radius	 = 0.1;
+		// const radSegments = 8;
+		// const numSegments = backboneAtoms.length*5;
+		// const geometry    = new CylinderGeometry(0.01, 0.01, 1, 8);
+		// const material    = new MeshStandardMaterial({ color: 0xFF0000 })
+		// const ribbon      = new InstancedMesh(geometry, material, numSegments);
+		// const radius	 = 0.1;
 
 		// Create a smooth backbone curve
-		const curve 	= new CatmullRomCurve3(backboneAtoms);
-		const points    = curve.getPoints(numSegments);
-		const frenets   = curve.computeFrenetFrames(numSegments, true);
-		const matrix = new Matrix4();
+		// const curve 	= new CatmullRomCurve3(backboneAtoms);
+		// const points    = curve.getPoints(numSegments);
+		// const frenets   = curve.computeFrenetFrames(numSegments, true);
+		// const matrix = new Matrix4();
 
-		const dummy = new Object3D();
+		// const dummy = new Object3D();
 
-		for (let i=0; i <points.length; i++) {
+		// for (let i=0; i <points.length; i++) {
 			
-			const point    = points[i];
-			const tangent  = frenets.tangents[i];
-			const normal   = frenets.tangents[i];
-			const binormal = frenets.tangents[i];
+		// 	const point    = points[i];
+		// 	const tangent  = frenets.tangents[i];
+		// 	const normal   = frenets.tangents[i];
+		// 	const binormal = frenets.tangents[i];
 
-			// Get the next point for the current segment
-			const nextPoint = points[i + 1]; if (nextPoint === undefined) continue;
-			const distance  = point.distanceTo(nextPoint); // Height of the cylinder
-			const midPoint  = new Vector3().addVectors(point, nextPoint).multiplyScalar(0.5);
+		// 	// Get the next point for the current segment
+		// 	const nextPoint = points[i + 1]; if (nextPoint === undefined) continue;
+		// 	const distance  = point.distanceTo(nextPoint); // Height of the cylinder
+		// 	const midPoint  = new Vector3().addVectors(point, nextPoint).multiplyScalar(0.5);
 
-			matrix.identity();
-			matrix.lookAt(point, nextPoint, new Vector3(0, 1, 0));
-			matrix.multiply(new Matrix4().makeRotationX(Math.PI / 2));
-			matrix.setPosition(point);
-			matrix.scale(new Vector3(1, distance, 1));
+		// 	matrix.identity();
+		// 	matrix.lookAt(point, nextPoint, new Vector3(0, 1, 0));
+		// 	matrix.multiply(new Matrix4().makeRotationX(Math.PI / 2));
+		// 	matrix.setPosition(point);
+		// 	matrix.scale(new Vector3(1, distance, 1));
 
-			// Set the transformation matrix for the current instance
-			ribbon.setMatrixAt(i, matrix);
+		// 	// Set the transformation matrix for the current instance
+		// 	ribbon.setMatrixAt(i, matrix);
 
-		}
-		scene.add(ribbon);
-		// // Create tube geometry along the path
-		// const radius 		  = 0.02;
-		// const tubularSegments = backboneAtoms.length*3;
-		// const radialSegments  = 8;
-		// const tubeGeometry    = new TubeGeometry(curve, tubularSegments, radius, radialSegments, false);
-
-		// // Iterate over the tube's vertices to apply non-uniform scaling
-		// const positionAttribute = tubeGeometry.getAttribute('position');
-
-		// // Apply squishing to the X and Z coordinates (e.g., squish along Z axis)
-		// for (let i = 0; i < positionAttribute.count; i++) {
-		// 	const x = positionAttribute.getX(i);
-		// 	const y = positionAttribute.getY(i);
-		// 	const z = positionAttribute.getZ(i);
-
-		// 	// Apply squish: scale X and Z coordinates
-		// 	const squishedX = x * 1.5; // Stretch in X direction
-		// 	const squishedZ = z * 0.5; // Squish in Z direction
-
-		// 	positionAttribute.setXYZ(i, squishedX, y, squishedZ); // Update the vertex position
 		// }
+		// scene.add(ribbon);
+		// // Create tube geometry along the path
+		const radius 		  = 0.05;
+		const radialSegments  = 8;
+		const material = new MeshStandardMaterial({ color: 0xcccfaa, wireframe: false });
+		for (const bb_ID in backboneAtoms) {
 
-		// // Notify Three.js that the positions have been updated
-		// positionAttribute.needsUpdate = true;
+			const backbone = backboneAtoms[bb_ID];
+			const curve    = new CatmullRomCurve3(backbone);
+			curve.curveType = 'catmullrom'; curve.tension = 0.1;
+			const tubularSegments = backbone.length*5;
+			const tubeGeometry    = new TubeGeometry(curve, tubularSegments, radius, radialSegments, false);
 
-		// // Create a material
-		// const material = new MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
+			const tube = new Mesh(tubeGeometry, material);
+			scene.add(tube);
+		}
 
-		// // Create the mesh
-		// const tube = new Mesh(tubeGeometry, material);
+		// const ribbonGeometry = new RibbonGeometry(curve, tubularSegments, radius, radialSegments, false);
+		// Iterate over the tube's vertices to apply non-uniform scaling
+		// Apply squishing to the X and Z coordinates (e.g., squish along Z axis)
 
-		// // Add the tube to the scene
-		// scene.add(tube);
+		// Create a material
+
+		// Create the mesh
+
+		// Add the tube to the scene
 
 		// return ribbon;
 	}
