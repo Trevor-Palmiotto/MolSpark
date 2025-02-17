@@ -56722,15 +56722,19 @@ class RibbonGeometry extends BufferGeometry {
 
 		function generateSegment( i ) {
 
-			// we use getPointAt to sample evenly distributed points from the given path
-
 			P = path.getPointAt( i / tubularSegments, P );
+			// let P2 = path.getPointAt( ((i / tubularSegments < 1) ? i / tubularSegments: (tubularSegments-1)/tubularSegments), P );
 
 			// retrieve corresponding normal and binormal
-			
+
 			const N = frames.normals[ i ];
 			const B = frames.binormals[ i ];
+			const T = frames.tangents[ i ];
 
+			const T2 = new Vector3().copy(frames.tangents[ ((i+1 < tubularSegments) ? i+1: i-1) ]);
+
+			const U = new Vector3().addVectors(T, T2).normalize();
+			const W = new Vector3().crossVectors(T, U).normalize();
 			// generate normals and vertices for the current segment
 
 			for ( let j = 0; j <= radialSegments; j ++ ) {
@@ -56745,7 +56749,7 @@ class RibbonGeometry extends BufferGeometry {
 				normal.x = ( cos * N.x + sin * B.x );
 				normal.y = ( cos * N.y + sin * B.y );
 				normal.z = ( cos * N.z + sin * B.z );
-				normal.normalize();
+				// normal.normalize();
 
 				normals.push( normal.x, normal.y, normal.z );
 
@@ -56753,11 +56757,10 @@ class RibbonGeometry extends BufferGeometry {
 
 				vertex.x = P.x + radius * normal.x;
 				vertex.y = P.y + radius * normal.y;
-				vertex.z = P.z + radius * normal.z*0.1;
+				vertex.z = P.z + radius * normal.z;
 
 				vertices.push( vertex.x, vertex.y, vertex.z );
-
-			}
+			}	
 
 		}
 
@@ -56964,6 +56967,61 @@ const atomic_models = {
 
 var atomicSystem, SCRA, unitCells, seqInfo;
 
+// Provides graph manipulations and algorithms for a molecular system represented as a graph
+class MolecularGraph {
+
+	constructor(nodes, edges) {
+
+		this.nodes = nodes; // list of nodes
+		this.edges = edges; // dictionary of adjacency dictionaries
+	
+	};
+
+	bfsShortestPath(start, target) {
+		// Initialize the queue with the start node
+		let queue = [start];
+		
+		// Map to keep track of visited nodes
+		let visited = new Set();
+		
+		// Parent map to reconstruct the path
+		let parent = new Map();
+		
+		// Mark the start node as visited
+		visited.add(start);
+
+		// While the queue is not empty
+		while (queue.length > 0) {
+			let currentNode = queue.shift();
+
+			// Check if the target is reached
+			if (currentNode === target) {
+				// Reconstruct the path from target to start using parent map
+				let path = [];
+				while (currentNode !== undefined) {
+					path.unshift(currentNode);
+					currentNode = parent.get(currentNode);
+				}
+				return path;
+			}
+
+			// Enqueue all unvisited neighbors and update their parent
+			for (let neighbor in this.edges[currentNode]) {
+				if (neighbor.split(",")[0] !== currentNode.split(",")[0] || Math.abs(Number(neighbor.split(",")[1]) - Number(currentNode.split(",")[1])) > 0) continue;
+				if (!visited.has(neighbor)) {
+					visited.add(neighbor);
+					parent.set(neighbor, currentNode);
+					queue.push(neighbor);
+				}
+			}
+		}
+
+		// If no path is found, return null
+		return undefined;
+	}
+
+}
+
 // contains a list IDs in unit cells of a 3D lattice for accession and restricted space searching
 class Lattice {
 
@@ -57105,7 +57163,7 @@ class System {
 		this.SCRA 	   		   = SCRA;
 		this.numStates 		   = Object.keys(SCRA.s).length;
 		this.numAtoms  		   = ((this.numStates > 1) ? this.SCRA.s[1].atomCount : this.SCRA.s[0].atomCount);
-		this.stateObjects      = Object.fromEntries(Object.keys(this.SCRA.s).map(state => [state, {"spheres": "", "lattice": "", "flAtoms": "", "cylinders": "", "connections": ""}])) // holds the various InstancedMeshes and lattice
+		this.stateObjects      = Object.fromEntries(Object.keys(this.SCRA.s).map(state => [state, {"spheres": "", "lattice": "", "flAtoms": "", "cylinders": "", "graph": ""}])) // holds the various InstancedMeshes and lattice
 		
 		this.fillMeshes();
 		this.loadState(0);
@@ -57124,12 +57182,11 @@ class System {
 			this.stateObjects[sID]["lattice"] = lattice;
 			this.stateObjects[sID]["flAtoms"] = flAtoms;
 
-			const [cylinders, connections] 		  = this.initializeStateBonds(state, flAtoms, lattice);
+			const [cylinders, graph]	 		  = this.initializeStateBonds(state, flAtoms, lattice);
 			this.stateObjects[sID]["cylinders"]   = cylinders;
-			this.stateObjects[sID]["connections"] = connections;
+			this.stateObjects[sID]["graph"]		  = graph;
 
-			const backbone = this.initializeStateBackBone(state, connections);
-			// this.
+			const backbone = this.initializeStateBackBone(state, graph);
 		}
 	};
 
@@ -57405,28 +57462,25 @@ class System {
 		cylinders.count = bondIndex;
 		
 		console.log("Load Time:",((performance.now() - start)/1000).toFixed(2), "s");
-		// console.log(totalAtomInteractions/flAtoms.length);
 		
-		return [cylinders, connections];
+		return [cylinders, new MolecularGraph(flAtoms, connections)];
 	};
 
-	// 
-	initializeStateBackBone = (state, connections) => {
+	initializeStateBackBone = (state, graph) => {
 
 		// first find all backbone atoms
 		let backboneAtoms = {};
-		let visitedAtoms   = {};
 
 		// for now, this just finds atoms that connect i -> i+1 residues
 		
-		for (const key in connections) {
+		for (const key in graph.edges) {
 			
 			const chainID   = key.split(",")[0];	
 			const resNumber = key.split(",")[1].split(":")[1];
 
-			if (!(chainID in backboneAtoms)) backboneAtoms[chainID] = [];
+			if (!(chainID in backboneAtoms)) backboneAtoms[chainID] = {end: "0,0,0", start: "0,0,10000"};
 
-			const bondPartners = connections[key];
+			const bondPartners = graph.edges[key];
 
 			for (const partner in bondPartners) {
 
@@ -57435,35 +57489,30 @@ class System {
 
 				if (chainID === chainIDPartner && Number(resNumber)+1 === Number(resNumberPartner)) {
 					
-					// add as necessary
-					if (!(key in visitedAtoms)) {
-						backboneAtoms[chainID].push(this.getAtomFromState(key, state).pos);
-						visitedAtoms[key] = true;
-					}
-					if (!(partner in visitedAtoms)) {
-						backboneAtoms[chainID].push(this.getAtomFromState(partner, state).pos);
-						visitedAtoms[partner] = true;
-					}
+					let maxID = ((Number(key.split(",")[2]) > Number(partner.split(",")[2])) ? key : partner);
+					let minID = ((Number(key.split(",")[2]) < Number(partner.split(",")[2])) ? key : partner);
 
+					backboneAtoms[chainID].start = ((Number(minID.split(",")[2]) < Number(backboneAtoms[chainID].start.split(",")[2]) ) ? minID : backboneAtoms[chainID].start);
+					backboneAtoms[chainID].end   = ((Number(maxID.split(",")[2]) > Number(backboneAtoms[chainID].end.split(",")[2]) ) ? maxID : backboneAtoms[chainID].end);
 				}
 			}
-
-			
 		}
 
 		// Create ribbon geometry along the path
 		const radius 		  = 0.05;
-		const radialSegments  = 8;
-		const material = new MeshStandardMaterial({ color: 0xcf00aa, wireframe: true });
+		const radialSegments  = 16;
+		const material = new MeshStandardMaterial({ color: 0xFF0000, wireframe: true });
 		for (const chain in backboneAtoms) {
+			const backboneIDs = graph.bfsShortestPath(backboneAtoms[chain].start, backboneAtoms[chain].end);
 
-			const backbone = backboneAtoms[chain];
-			const curve    = new CatmullRomCurve3(backbone);
-			curve.curveType = 'catmullrom'; curve.tension = 0.1;
-			const tubularSegments = backbone.length*5;
-			const geometry    = new RibbonGeometry(curve, tubularSegments, radius, radialSegments, false);
+			if (backboneIDs === null) {console.log(chain); continue};
+			console.log(chain);
+			const backbonePos = backboneIDs.map(id => this.getAtomFromState(id, state).pos)
+			const curve    	  = new CatmullRomCurve3(backbonePos, false, 'catmullrom', 0.1);
 
-			const ribbon = new Mesh(geometry, material);
+			const tubularSegments = backboneIDs.length*4;
+			const geometry        = new RibbonGeometry(curve, tubularSegments, radius, radialSegments, false);
+			const ribbon		  = new Mesh(geometry, material);
 			scene.add(ribbon);
 		}
 
@@ -57700,7 +57749,6 @@ function parsePDB(lines) {
 	let resAtomTypes = [];
 	for (const line of lines) {
 		const recordType = line.slice(0, 6).trim();
-
 		if (recordType === "MODEL") {
 
 			// Start a new state
@@ -57740,7 +57788,6 @@ function parsePDB(lines) {
 			const y          = parseFloat(line.slice(38, 46).trim())/10; // angstrom to nanometer
 			const z          = parseFloat(line.slice(46, 54).trim())/10; // angstrom to nanometer
 			const atomType   = line.substring(76, 78).trim();
-
 			const sID = ((currState !== null) ? currState : 0);
 			if (!hierarchy.s[sID].c[cID]) {
 
@@ -57748,7 +57795,6 @@ function parsePDB(lines) {
 				if (!seqInfo.c[cID]) seqInfo.c[cID] = "";
 			
 			}
-			// resAtomTypes.push(atomName);
 
 			// Set residue key (initialize as necessary)
 			const rID = `${resName}:${resSeq}`;
