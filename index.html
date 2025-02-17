@@ -56664,7 +56664,6 @@ class RibbonGeometry extends BufferGeometry {
 		const frames = path.computeFrenetFrames( tubularSegments, closed );
 
 		// expose internals
-
 		this.tangents = frames.tangents;
 		this.normals = frames.normals;
 		this.binormals = frames.binormals;
@@ -56677,7 +56676,6 @@ class RibbonGeometry extends BufferGeometry {
 		let P = new Vector3();
 
 		// buffer
-
 		const vertices = [];
 		const normals = [];
 		const uvs = [];
@@ -56729,7 +56727,7 @@ class RibbonGeometry extends BufferGeometry {
 			P = path.getPointAt( i / tubularSegments, P );
 
 			// retrieve corresponding normal and binormal
-
+			
 			const N = frames.normals[ i ];
 			const B = frames.binormals[ i ];
 
@@ -57456,17 +57454,17 @@ class System {
 		// Create ribbon geometry along the path
 		const radius 		  = 0.05;
 		const radialSegments  = 8;
-		const material = new MeshStandardMaterial({ color: 0xcccfaa, wireframe: false });
-		for (const bb_ID in backboneAtoms) {
+		const material = new MeshStandardMaterial({ color: 0xcf00aa, wireframe: true });
+		for (const chain in backboneAtoms) {
 
-			const backbone = backboneAtoms[bb_ID];
+			const backbone = backboneAtoms[chain];
 			const curve    = new CatmullRomCurve3(backbone);
 			curve.curveType = 'catmullrom'; curve.tension = 0.1;
 			const tubularSegments = backbone.length*5;
 			const geometry    = new RibbonGeometry(curve, tubularSegments, radius, radialSegments, false);
 
 			const ribbon = new Mesh(geometry, material);
-			scene.add(tube);
+			scene.add(ribbon);
 		}
 
 		// const ribbonGeometry = new RibbonGeometry(curve, tubularSegments, radius, radialSegments, false);
