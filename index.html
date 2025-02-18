@@ -56723,10 +56723,8 @@ class RibbonGeometry extends BufferGeometry {
 		function generateSegment( i ) {
 
 			P = path.getPointAt( i / tubularSegments, P );
-			// let P2 = path.getPointAt( ((i / tubularSegments < 1) ? i / tubularSegments: (tubularSegments-1)/tubularSegments), P );
 
 			// retrieve corresponding normal and binormal
-
 			const N = frames.normals[ i ];
 			const B = frames.binormals[ i ];
 			const T = frames.tangents[ i ];
@@ -57007,7 +57005,7 @@ class MolecularGraph {
 
 			// Enqueue all unvisited neighbors and update their parent
 			for (let neighbor in this.edges[currentNode]) {
-				if (neighbor.split(",")[0] !== currentNode.split(",")[0] || Math.abs(Number(neighbor.split(",")[1]) - Number(currentNode.split(",")[1])) > 0) continue;
+				if (neighbor.split("-")[0] !== currentNode.split("-")[0] || Math.abs(Number(neighbor.split("-")[1].split(":")[1]) - Number(currentNode.split("-")[1].split(":")[1])) > 1) continue;
 				if (!visited.has(neighbor)) {
 					visited.add(neighbor);
 					parent.set(neighbor, currentNode);
@@ -57166,7 +57164,7 @@ class System {
 		this.stateObjects      = Object.fromEntries(Object.keys(this.SCRA.s).map(state => [state, {"spheres": "", "lattice": "", "flAtoms": "", "cylinders": "", "graph": ""}])) // holds the various InstancedMeshes and lattice
 		
 		this.fillMeshes();
-		this.loadState(0);
+		// this.loadState(0);
 	};
 
 	// fills the relevant objects for all states - accessible in this.stateObjects
@@ -57182,17 +57180,17 @@ class System {
 			this.stateObjects[sID]["lattice"] = lattice;
 			this.stateObjects[sID]["flAtoms"] = flAtoms;
 
-			const [cylinders, graph]	 		  = this.initializeStateBonds(state, flAtoms, lattice);
-			this.stateObjects[sID]["cylinders"]   = cylinders;
-			this.stateObjects[sID]["graph"]		  = graph;
+			const [cylinders, graph]	 		= this.initializeStateBonds(state, flAtoms, lattice);
+			this.stateObjects[sID]["graph"]		= graph;
+			this.stateObjects[sID]["cylinders"] = cylinders;
 
-			const backbone = this.initializeStateBackBone(state, graph);
+			const backbone = this.initializeStateBackBone(state, graph, flAtoms);
 		}
 	};
 
 	// loads atom information from key
 	getAtomFromState = (key, state) => {
-		let keySplit = key.split(",")
+		let keySplit = key.split("-")
 		return state?.c[keySplit[0]]?.r[keySplit[1]]?.a[keySplit[2]];
 	}
 
@@ -57242,7 +57240,7 @@ class System {
 					spheres.setMatrixAt(index, matrix);
 					spheres.setColorAt (index, color);
 
-					let atomKey = [cID, rID, aID, atom.name].join(",");
+					let atomKey = [cID, rID, aID, atom.name].join("-");
 
 					// set atom position in 
 					lattice.set(atom, atomKey);
@@ -57304,7 +57302,7 @@ class System {
 
 			let pos          = this.getAtomFromState(atomKey, state).pos;
 			let parentCell   = lattice.pos2Cell(pos);
-			let parentCellID = [parentCell.x, parentCell.y, parentCell.z].join(",");
+			let parentCellID = [parentCell.x, parentCell.y, parentCell.z].join("-");
 
 			const parentAtoms = lattice.get(parentCell).map(atom => atom[0]);
 
@@ -57315,7 +57313,7 @@ class System {
 			// get cells based on requirements
 			for (const offset of offsets) {
 				const localCell   = new Vector3().copy(parentCell).add(offset);
-				const localCellID = localCell.toArray().join(",");
+				const localCellID = localCell.toArray().join("-");
 
 				// select valid, unvisited cells for non-hydrogen checks
 				if (!(!lattice.boundsCell(localCell) || localCellID in visitedCells)) unvisitedLocalAtoms.push(lattice.get(localCell));
@@ -57466,67 +57464,82 @@ class System {
 		return [cylinders, new MolecularGraph(flAtoms, connections)];
 	};
 
-	initializeStateBackBone = (state, graph) => {
+	// Finding backbone of all chains under the assumption that flAtoms have ordered atom numbers
+	initializeStateBackBone = (state, graph, flAtoms) => {
 
 		// first find all backbone atoms
-		let backboneAtoms = {};
-
-		// for now, this just finds atoms that connect i -> i+1 residues
+		let connectionAtoms = {};
+		let visitedAtoms  = {};
 		
-		for (const key in graph.edges) {
+		// finding atoms that connect between residues
+		for (const atom of flAtoms) {
 			
-			const chainID   = key.split(",")[0];	
-			const resNumber = key.split(",")[1].split(":")[1];
+			const chainID   = atom.split("-")[0];	
+			const resNumber = atom.split("-")[1].split(":")[1];
 
-			if (!(chainID in backboneAtoms)) backboneAtoms[chainID] = {end: "0,0,0", start: "0,0,10000"};
+			if (!(chainID in connectionAtoms)) connectionAtoms[chainID] = [];
 
-			const bondPartners = graph.edges[key];
+			const neighbors = graph.edges[atom];
 
-			for (const partner in bondPartners) {
+			for (const neighbor in neighbors) {
 
-				const chainIDPartner   = partner.split(",")[0];
-				const resNumberPartner = partner.split(",")[1].split(":")[1];
+				const neighborChainID   = neighbor.split("-")[0];
+				const resNumberNeighbor = neighbor.split("-")[1].split(":")[1];
 
-				if (chainID === chainIDPartner && Number(resNumber)+1 === Number(resNumberPartner)) {
-					
-					let maxID = ((Number(key.split(",")[2]) > Number(partner.split(",")[2])) ? key : partner);
-					let minID = ((Number(key.split(",")[2]) < Number(partner.split(",")[2])) ? key : partner);
-
-					backboneAtoms[chainID].start = ((Number(minID.split(",")[2]) < Number(backboneAtoms[chainID].start.split(",")[2]) ) ? minID : backboneAtoms[chainID].start);
-					backboneAtoms[chainID].end   = ((Number(maxID.split(",")[2]) > Number(backboneAtoms[chainID].end.split(",")[2]) ) ? maxID : backboneAtoms[chainID].end);
+				if (chainID === neighborChainID && Number(resNumber)+1 === Number(resNumberNeighbor)) {
+					if (!(atom in visitedAtoms)) {
+						visitedAtoms[atom] = true;
+						connectionAtoms[chainID].push(atom);
+					}
+					if (!(neighbor in visitedAtoms)) {
+						visitedAtoms[neighbor] = true;
+						connectionAtoms[chainID].push(neighbor);
+					}
 				}
 			}
 		}
+		// creating atom lists based on connectivity - if bonds missing it will be obvious
+		let backbones = [];
+		for (const chain in connectionAtoms) {
 
+			let backbone = [];
+			const chainConnections = connectionAtoms[chain];
+			// interpolate between connection atoms
+			for (let i=0; i < chainConnections.length-1; i++) {
+
+				let atomI = chainConnections[i];
+				let atomJ = chainConnections[i+1];
+
+				let path = graph.bfsShortestPath(atomI, atomJ);
+				if (path !== undefined) {
+					let combined = backbone.concat(path);
+					backbone 	 = Array.from(new Set(combined));
+				} else {
+					backbones.push(backbone)
+					backbone = [atomJ];
+				}
+			}
+			backbones.push(backbone)
+		}
+		console.log(backbones)
 		// Create ribbon geometry along the path
 		const radius 		  = 0.05;
-		const radialSegments  = 16;
-		const material = new MeshStandardMaterial({ color: 0xFF0000, wireframe: true });
-		for (const chain in backboneAtoms) {
-			const backboneIDs = graph.bfsShortestPath(backboneAtoms[chain].start, backboneAtoms[chain].end);
+		const radialSegments  = 8;
+		let color;
+		for (const backbone of backbones) {
+			color = new Color( 0xffffff );
+			color.setHex( Math.random() * 0xffffff );
 
-			if (backboneIDs === null) {console.log(chain); continue};
-			console.log(chain);
-			const backbonePos = backboneIDs.map(id => this.getAtomFromState(id, state).pos)
-			const curve    	  = new CatmullRomCurve3(backbonePos, false, 'catmullrom', 0.1);
+			const material = new MeshStandardMaterial({ color: color, wireframe: false });
 
-			const tubularSegments = backboneIDs.length*4;
+			const coordinates = backbone.map(id => this.getAtomFromState(id, state).pos)
+			const curve     = new CatmullRomCurve3(coordinates, false, 'catmullrom', 0.1);
+
+			const tubularSegments = backbone.length*2;
 			const geometry        = new RibbonGeometry(curve, tubularSegments, radius, radialSegments, false);
 			const ribbon		  = new Mesh(geometry, material);
 			scene.add(ribbon);
 		}
-
-		// const ribbonGeometry = new RibbonGeometry(curve, tubularSegments, radius, radialSegments, false);
-		// Iterate over the tube's vertices to apply non-uniform scaling
-		// Apply squishing to the X and Z coordinates (e.g., squish along Z axis)
-
-		// Create a material
-
-		// Create the mesh
-
-		// Add the tube to the scene
-
-		// return ribbon;
 	}
 
 	// adds spheres and cylinders from the indexed state to the scene
