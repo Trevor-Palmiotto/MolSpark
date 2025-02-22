@@ -56963,7 +56963,7 @@ const atomic_models = {
     "OG" : { 'z': 118, "radius": 0.400, "color": 0x000000 },
 };
 
-var atomicSystem, SCRA, unitCells, seqInfo;
+var atomicSystem, SGCRA, unitCells, seqInfo;
 
 // Provides graph manipulations and algorithms for a molecular system represented as a graph
 class MolecularGraph {
@@ -56975,7 +56975,7 @@ class MolecularGraph {
 	
 	};
 
-	bfsShortestPath(start, target) {
+	shortestPath(start, target) {
 		// Initialize the queue with the start node
 		let queue = [start];
 		
@@ -57155,24 +57155,24 @@ class Lattice {
 
 class System {
 	
-	constructor(SCRA) {
-		if (Object.keys(SCRA.s).length > 1) {delete SCRA.s?.['0'];}
+	constructor(SGCRA) {
+		if (Object.keys(SGCRA.s).length > 1) {delete SGCRA.s?.['0'];}
 
-		this.SCRA 	   		   = SCRA;
-		this.numStates 		   = Object.keys(SCRA.s).length;
-		this.numAtoms  		   = ((this.numStates > 1) ? this.SCRA.s[1].atomCount : this.SCRA.s[0].atomCount);
-		this.stateObjects      = Object.fromEntries(Object.keys(this.SCRA.s).map(state => [state, {"spheres": "", "lattice": "", "flAtoms": "", "cylinders": "", "graph": ""}])) // holds the various InstancedMeshes and lattice
+		this.SGCRA 	   		   = SGCRA;
+		this.numStates 		   = Object.keys(SGCRA.s).length;
+		this.numAtoms  		   = ((this.numStates > 1) ? this.SGCRA.s[1].atomCount : this.SGCRA.s[0].atomCount);
+		this.stateObjects      = Object.fromEntries(Object.keys(this.SGCRA.s).map(state => [state, {"spheres": "", "lattice": "", "flAtoms": "", "cylinders": "", "graph": ""}])) // holds the various InstancedMeshes and lattices
 		
 		this.fillMeshes();
-		// this.loadState(0);
+		this.loadState(0);
 	};
 
 	// fills the relevant objects for all states - accessible in this.stateObjects
 	fillMeshes = () => {
 
-		for (const sID in this.SCRA.s){
+		for (const sID in this.SGCRA.s){
 
-			const state = this.SCRA.s[sID];
+			const state = this.SGCRA.s[sID];
 
 			const [spheres, lattice, flAtoms] = this.initializeStateAtoms(state);
 			
@@ -57188,10 +57188,16 @@ class System {
 		}
 	};
 
+
+	parseAtomID = (id) => {
+		let split = id.split("-");
+		return {gID: split[0], cID: split[1], rID: split[2], aID: split[3], aName: split[4]};
+	}
+
 	// loads atom information from key
-	getAtomFromState = (key, state) => {
-		let keySplit = key.split("-")
-		return state?.c[keySplit[0]]?.r[keySplit[1]]?.a[keySplit[2]];
+	getAtomFromState = (id, state) => {
+		let parsed = this.parseAtomID(id);
+		return state?.g[parsed.gID][parsed.cID]?.r[parsed.rID]?.a[parsed.aID];
 	}
 
 	// initialize atoms of a specific state
@@ -57215,38 +57221,42 @@ class System {
 
 		// fill "flAtoms" and "spheres" with atoms from inputted state
 		let index = 0;
-		for (const cID in state.c) {
-			const chain = state.c[cID];
+		for (const gID in state.g) {
+			const group = state.g[gID];
 
-			for (const rID in chain.r) {
-				const resid = chain.r[rID];
+			for (const cID in group) {
+				const chain = group[cID];
 
-				for (const aID in resid.a) {
-					const atom = resid.a[aID];
+				for (const rID in chain.r) {
+					const resid = chain.r[rID];
 
-					// fetching atom-derived attributes
-					color.set(atomic_models[atom.type]["color"]);
-					let radius = atomic_models[atom.type]["radius"];
-					let pos    = atom.pos;
+					for (const aID in resid.a) {
+						const atom = resid.a[aID];
 
-					// reset the matrix
-					matrix.identity();
+						// fetching atom-derived attributes
+						color.set(atomic_models[atom.type]["color"]);
+						let radius = atomic_models[atom.type]["radius"];
+						let pos    = atom.pos;
 
-					// set the position and scale
-					matrix.setPosition(pos.x, pos.y, pos.z);
-					matrix.scale(new Vector3(radius, radius, radius));
-					
-					// set matrix and color in InstancedMesh
-					spheres.setMatrixAt(index, matrix);
-					spheres.setColorAt (index, color);
+						// reset the matrix
+						matrix.identity();
 
-					let atomKey = [cID, rID, aID, atom.name].join("-");
+						// set the position and scale
+						matrix.setPosition(pos.x, pos.y, pos.z);
+						matrix.scale(new Vector3(radius, radius, radius));
+						
+						// set matrix and color in InstancedMesh
+						spheres.setMatrixAt(index, matrix);
+						spheres.setColorAt(index, color);
 
-					// set atom position in 
-					lattice.set(atom, atomKey);
-					flAtoms.push(atomKey);
+						let atomKey = [gID, cID, rID, aID, atom.name].join("-");
 
-					index++;
+						// set atom position in 
+						lattice.set(atom, atomKey);
+						flAtoms.push(atomKey);
+
+						index++;
+					}
 				}
 			}
 		}
@@ -57402,6 +57412,7 @@ class System {
 					connections[b][a] = new Vector3().copy(bondVector).multiplyScalar(-1);
 					
 				} else {
+
 					for (const b of sortedUnvisitedLocalAtoms) {
 					
 						const atomB = this.getAtomFromState(b, state);
@@ -57467,61 +57478,78 @@ class System {
 	// Finding backbone of all chains under the assumption that flAtoms have ordered atom numbers
 	initializeStateBackBone = (state, graph, flAtoms) => {
 
-		// first find all backbone atoms
-		let connectionAtoms = {};
+		// store intra-residue-connected atoms and whether or not they have been stored yet
+		let connectedAtoms = {};
 		let visitedAtoms  = {};
-		
-		// finding atoms that connect between residues
-		for (const atom of flAtoms) {
+
+		// finding atoms that connect between residues IN THE SAME CHAIN
+		for (const aID of flAtoms) {
 			
-			const chainID   = atom.split("-")[0];	
-			const resNumber = atom.split("-")[1].split(":")[1];
+			const atomParsed = this.parseAtomID(aID);
 
-			if (!(chainID in connectionAtoms)) connectionAtoms[chainID] = [];
+			const chainID   = atomParsed.gID + atomParsed.cID;
+			const resNumber = atomParsed.rID.split(":")[1];
 
-			const neighbors = graph.edges[atom];
+			if (!(chainID in connectedAtoms)) connectedAtoms[chainID] = [];
 
-			for (const neighbor in neighbors) {
+			const neighbors = graph.edges[aID];
 
-				const neighborChainID   = neighbor.split("-")[0];
-				const resNumberNeighbor = neighbor.split("-")[1].split(":")[1];
+			for (const nbrID in neighbors) {
+
+				const neighborParsed = this.parseAtomID(nbrID);
+
+				const neighborChainID   = neighborParsed.gID + neighborParsed.cID;
+				const resNumberNeighbor = neighborParsed.rID.split(":")[1];
 
 				if (chainID === neighborChainID && Number(resNumber)+1 === Number(resNumberNeighbor)) {
-					if (!(atom in visitedAtoms)) {
-						visitedAtoms[atom] = true;
-						connectionAtoms[chainID].push(atom);
+
+					if (!(aID in visitedAtoms)) {
+						visitedAtoms[aID] = true;
+						connectedAtoms[chainID].push(aID);
 					}
-					if (!(neighbor in visitedAtoms)) {
-						visitedAtoms[neighbor] = true;
-						connectionAtoms[chainID].push(neighbor);
+
+					if (!(nbrID in visitedAtoms)) {
+						visitedAtoms[nbrID] = true;
+						connectedAtoms[chainID].push(nbrID);
 					}
 				}
 			}
 		}
+
+
 		// creating atom lists based on connectivity - if bonds missing it will be obvious
 		let backbones = [];
-		for (const chain in connectionAtoms) {
+		let backbone  = [];
+		let combined  = [];
+		for (const chain in connectedAtoms) {
 
-			let backbone = [];
-			const chainConnections = connectionAtoms[chain];
-			// interpolate between connection atoms
+			backbone = [];
+
+			const chainConnections = connectedAtoms[chain];
+			
+			// interpolate between intra-residue connected atoms
 			for (let i=0; i < chainConnections.length-1; i++) {
 
-				let atomI = chainConnections[i];
-				let atomJ = chainConnections[i+1];
+				let a = chainConnections[i];
+				let b = chainConnections[i+1];
 
-				let path = graph.bfsShortestPath(atomI, atomJ);
+				let path = graph.shortestPath(a, b);
+				
 				if (path !== undefined) {
-					let combined = backbone.concat(path);
-					backbone 	 = Array.from(new Set(combined));
+				
+					combined = backbone.concat(path);
+					backbone = Array.from(new Set(combined));
+				
 				} else {
-					backbones.push(backbone)
-					backbone = [atomJ];
+				
+					combined = backbone.concat([a, b]);
+					backbone = Array.from(new Set(combined));
+				
 				}
 			}
-			backbones.push(backbone)
-		}
 
+			if (backbone.length) backbones.push(backbone)
+		}
 		// Create ribbon geometry along the path
 		const radius 		  = 0.05;
 		const radialSegments  = 8;
@@ -57530,9 +57558,10 @@ class System {
 			color = new Color( 0xffffff );
 			color.setHex( Math.random() * 0xffffff );
 
-			const material = new MeshStandardMaterial({ color: color, wireframe: false });
+			const material = new MeshPhongMaterial({ color: color, wireframe: false, shininess: 10 });
+			// const material = new MeshStandardMaterial({ color: color, wireframe: false});
 
-			const coordinates = backbone.map(id => this.getAtomFromState(id, state).pos)
+			const coordinates = backbone.map(id => this.getAtomFromState(id, state).pos);
 			const curve     = new CatmullRomCurve3(coordinates, false, 'catmullrom', 0.1);
 
 			const tubularSegments = backbone.length*2;
@@ -57554,10 +57583,6 @@ class System {
 		this.prevSpheres   = spheres
 		this.prevCylinders = cylinders;
 	}
-
-		// This might eventually be the optimal lattice search approach
-	initializeStateBonds2 = (state, flAtoms, lattice) => {
-	};
 
 };
 
@@ -57728,9 +57753,110 @@ animate();
 
 
 // ---------------- [ADD -> SYSTEM] IMPLEMENTATION ----------------
+
+function PDB(file) {
+
+	let extractedValues = {};
+	// splitting ATOM/HETATM line based on PDB format
+    const extract = (line) => {return {gID: line.slice(21, 22).trim(), rName: line.slice(17, 20).trim(), rNum: parseInt(line.slice(22, 26).trim(), 10), aName: line.slice(12, 16).trim(), aNum: parseInt(line.slice(6, 11).trim(), 10), aType: line.substring(76, 78).trim(), pos: new Vector3(parseFloat(line.slice(30, 38).trim())/10, parseFloat(line.slice(38, 46).trim())/10, parseFloat(line.slice(46, 54).trim())/10)};}
+
+	let hierarchy = {s: {0: {atomCount: 0, g: {}, center: new Vector3(), minXYZ: new Vector3(), maxXYZ: new Vector3()}}}
+
+	let sID = 0;
+	let gID = "";
+	let rID = "";
+
+	for (const line of file) {
+
+		const recordType = line.slice(0, 6).trim();
+
+		if (recordType === "MODEL"){
+
+			sID = parseInt(line.slice(10, 14).trim(), 10);
+
+			if (sID in hierarchy.s) console.log("REPEATED STATE IN FILE");
+
+			hierarchy.s[sID] = {atomCount: 0, g: {}, center: new Vector3(), minXYZ: new Vector3(), maxXYZ: new Vector3()};
+		}
+
+		else if (recordType === "ATOM" || recordType === "HETATM") {
+
+			extractedValues = extract(line);
+			gID = extractedValues.gID;
+			const rID = `${extractedValues.rName}:${extractedValues.rNum}`;
+
+			if (!(gID in hierarchy.s[sID].g)) hierarchy.s[sID].g[gID] = [{atomCount: 0, r: {}}];
+
+			// If a new residue
+			if (!(rID in hierarchy.s[sID].g[gID].at(-1).r)){
+
+				// (If residue is part of a chain) OR (residue is a non-polymer and chain is empty)
+				if (recordType === "ATOM" || (recordType === "HETATM" && Object.keys(hierarchy.s[sID].g[gID].at(-1).r).length === 0)){
+					// add new residue to chain
+					hierarchy.s[sID].g[gID].at(-1).r[rID] = {atomCount: 0, rName: extractedValues.rName, a: {}}
+				}
+
+				// residue is a non-polymer and chain is not empty
+				else {
+					// create new chain and add residue to it
+					hierarchy.s[sID].g[gID].push({atomCount: 0, r: {[rID]: {atomCount: 0, rName: extractedValues.rName, a: {}}}});
+				}
+			}
+			hierarchy.s[sID].g[gID].at(-1).r[rID].a[extractedValues.aNum] = {number: extractedValues.aNum, name: extractedValues.aName, type: extractedValues.aType, pos: extractedValues.pos}
+
+			// increment atomCounts
+			hierarchy.s[sID].atomCount++;
+			hierarchy.s[sID].g[gID].at(-1).atomCount++;
+			hierarchy.s[sID].g[gID].at(-1).r[rID].atomCount++;
+
+			hierarchy.s[sID].center.add(extractedValues.pos);
+		}
+	}
+
+	// Centering atoms and setting bounding box
+	for (const sID in hierarchy.s) {
+		let state = hierarchy.s[sID];
+
+		if (state.atomCount === 0) continue;
+		
+		state.center.divideScalar(Math.max(state.atomCount));
+		
+		let center = state.center;
+		let minXYZ = state.minXYZ;
+		let maxXYZ = state.maxXYZ;
+
+		for (const gID in state.g) {
+			let group = state.g[gID];
+
+			for (const cID in group) {
+				let chain = group[cID];
+				
+				for (const rID in chain.r) {
+					let resid = chain.r[rID];
+
+					for (const aID in resid.a) {
+						let atom = resid.a[aID]; atom.pos.sub(center);
+
+						if (minXYZ.x > atom.pos.x) minXYZ.x = atom.pos.x;
+						if (minXYZ.y > atom.pos.y) minXYZ.y = atom.pos.y;
+						if (minXYZ.z > atom.pos.z) minXYZ.z = atom.pos.z;
+
+						if (maxXYZ.x < atom.pos.x) maxXYZ.x = atom.pos.x;
+						if (maxXYZ.y < atom.pos.y) maxXYZ.y = atom.pos.y;
+						if (maxXYZ.z < atom.pos.z) maxXYZ.z = atom.pos.z;
+					}
+				}
+			}
+		}
+	}
+	return hierarchy;
+}
+
+
 // General PDB file parser, returns hierarchy: state -> chain -> residue -> atoms
 function parsePDB(lines) {
 
+	// Meant for sequence formation
 	const aminoAcidMap = {
 		ALA: "A", ARG: "R", ASN: "N", ASP: "D", CYS: "C",
 		GLN: "Q", GLU: "E", GLY: "G", HIS: "H", ILE: "I",
@@ -57747,27 +57873,25 @@ function parsePDB(lines) {
 
 	// positional information
 	var seqInfo  = {c: {}};
-	
+	var cID;	
 	// Hierarchical object: state -> chain -> residue -> atoms (hierarchy[0] is the case for single state)
-	const hierarchy   = {s: {0: {atomCount: 0, 
-								 c: {}, 
-								 center: new Vector3(0,0,0), 
-								 minXYZ: new Vector3(Infinity, Infinity, Infinity), 
-								 maxXYZ: new Vector3(-Infinity, -Infinity, -Infinity)
+	const hierarchy = {s: {0: {atomCount: 0, 
+							   c: {}, 
+							   center: new Vector3(0,0,0), 
+							   minXYZ: new Vector3(Infinity, Infinity, Infinity), 
+							   maxXYZ: new Vector3(-Infinity, -Infinity, -Infinity)
 	}}}; // this could be done differently
 	
-	let currState 	 = 0;   // Current MODEL number
+	let currState 	 = 0; // Current MODEL number
 	let atomCounter  = 0; // Consider this being replaced by atomSerial...
 	let prevRID      = 0;
 	let resAtomTypes = [];
 	for (const line of lines) {
 		const recordType = line.slice(0, 6).trim();
 		if (recordType === "MODEL") {
-
 			// Start a new state
 			currState = parseInt(line.slice(10, 14).trim(), 10);
 			if (!hierarchy.s[currState]) {
-			
 				hierarchy.s[currState] = {
 					atomCount: 0, 
 					c: {}, 
@@ -57776,10 +57900,8 @@ function parsePDB(lines) {
 					maxXYZ: new Vector3(-Infinity, -Infinity, -Infinity)
 				};
 			}
-
 		} 
 		else if (recordType === "ENDMDL") {
-
 			// End of current state - set the center
 			hierarchy?.s[currState]?.center?.divideScalar(hierarchy?.s[currState]?.atomCount);
 			currState = null;
@@ -57788,13 +57910,16 @@ function parsePDB(lines) {
 		else if (recordType === "HEADER") {
 			seqInfo.id = line.split("  ").filter(i => i).slice(-1);
 		}
+		else if (recordType === "TER") {
+			
+		}
 		else if (recordType === "ATOM" || recordType === "HETATM") {
 
-			// Parse atom data
+			// Parse line
+			cID        		 = line.slice(21, 22).trim();
 			const atomSerial = parseInt(line.slice(6, 11).trim(), 10);
 			const atomName   = line.slice(12, 16).trim();
 			const resName    = line.slice(17, 20).trim();
-			const cID        = line.slice(21, 22).trim();
 			const resSeq     = parseInt(line.slice(22, 26).trim(), 10);
 			const iCode      = line.slice(26, 27).trim(); // Optional insertion code
 			const x          = parseFloat(line.slice(30, 38).trim())/10; // angstrom to nanometer
@@ -57802,11 +57927,10 @@ function parsePDB(lines) {
 			const z          = parseFloat(line.slice(46, 54).trim())/10; // angstrom to nanometer
 			const atomType   = line.substring(76, 78).trim();
 			const sID = ((currState !== null) ? currState : 0);
-			if (!hierarchy.s[sID].c[cID]) {
 
+			if (!hierarchy.s[sID].c[cID]) {
 				hierarchy.s[sID].c[cID] = {atomCount: 0, r: {}};
 				if (!seqInfo.c[cID]) seqInfo.c[cID] = "";
-			
 			}
 
 			// Set residue key (initialize as necessary)
@@ -57927,14 +58051,15 @@ document.getElementById('browse-pdb').onchange = function() {
 		const lines = text.split('\n');
 
 		// load system
-		[SCRA, seqInfo] = parsePDB(lines);
-		atomicSystem = new System(SCRA);
+		// [SGCRA, seqInfo] = parsePDB(lines);
+		SGCRA = PDB(lines);
+		atomicSystem = new System(SGCRA);
 
 		// TBD
 		// loadSeqInfo(seqInfo);
 		
 		// display lattice
-		// let startState = ((SCRA.s[1] !== undefined)? 1: 0);
+		// let startState = ((SGCRA.s[1] !== undefined)? 1: 0);
 		// unitCells = drawLattice(atomicSystem.stateObjects[startState]["lattice"]);
 
 		// show memory usage
