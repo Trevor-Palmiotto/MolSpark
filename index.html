@@ -57237,10 +57237,12 @@ class System {
 						color.set(atomic_models[atom.type]["color"]);
 						let radius = atomic_models[atom.type]["radius"];
 						let pos    = atom.pos;
+						
+						if (resid.rName === "HOH") radius = 0.05;
 
 						// reset the matrix
 						matrix.identity();
-
+						
 						// set the position and scale
 						matrix.setPosition(pos.x, pos.y, pos.z);
 						matrix.scale(new Vector3(radius, radius, radius));
@@ -57849,6 +57851,7 @@ function PDB(file) {
 			}
 		}
 	}
+	console.log(hierarchy);
 	return hierarchy;
 }
 
