@@ -57238,7 +57238,8 @@ class System {
 						let radius = atomic_models[atom.type]["radius"];
 						let pos    = atom.pos;
 						
-						if (resid.rName === "HOH") radius = 0.05;
+						if (resid.rName === "HOH" && atom.name === "O") radius = 0.05;
+						else if (chain.atomCount === 1) radius *= 2;
 
 						// reset the matrix
 						matrix.identity();
