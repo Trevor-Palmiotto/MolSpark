@@ -54681,7 +54681,7 @@ class TrackballControls extends EventDispatcher {
 
 		this.screen = { left: 0, top: 0, width: 0, height: 0 };
 
-		this.rotateSpeed = 1.0;
+		this.rotateSpeed = 1.2;
 		this.zoomSpeed = 1.2;
 		this.panSpeed = 0.3;
 
@@ -54690,7 +54690,7 @@ class TrackballControls extends EventDispatcher {
 		this.noPan = false;
 
 		this.staticMoving = false;
-		this.dynamicDampingFactor = 0.2;
+		this.dynamicDampingFactor = 0.3;
 
 		this.minDistance = 0;
 		this.maxDistance = Infinity;
@@ -57610,7 +57610,8 @@ const gridHelper   = new GridHelper(40, 40, 0xFFFFFF, 0xFFFFFF);
 const pointLight   = new PointLight( 0xFFFFFF, 10, 1000, 0.0001 );
 const ambientLight = new AmbientLight( 0xFFFFFF );
 const camera       = new PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 500 );
-const controller   = new CameraController(camera, renderer.domElement);
+const controller   = new TrackballControls(camera, renderer.domElement);
+// const controller   = new CameraController(camera, renderer.domElement);
 scene.background   = new Color( 0x000000 );
 scene.fog          = new Fog( 0xFFFFFFF, 10, 200 ); // fog depth will eventually be scrollable? with a key input (mousewheel), have button to toggle between mouse and keypad
 
@@ -57647,7 +57648,7 @@ document.addEventListener("pointerdown", (e) => {
 			if (intersects[i].object.type === "Mesh") {
 
 				// calculating the plane of movement
-				controller.Disable();
+				// controller.Disable();
 				pointIntersect.copy(intersects[i].point);
 				dragMeshOrigin.copy(intersects[i].object.position)
 				plane.setFromNormalAndCoplanarPoint(planeNormal, pointIntersect);
@@ -57686,7 +57687,7 @@ document.addEventListener("pointermove", (e) => {
     if (dragMesh) {
 		
 		// lock the controller in place
-		controller.Disable();
+		// controller.Disable();
 
 		// set new object position
         raycaster.ray.intersectPlane(plane, planeIntersect);
@@ -57695,7 +57696,7 @@ document.addEventListener("pointermove", (e) => {
 });
 
 document.addEventListener("pointerup", () => {
-	dragMesh = null; controller.Enable();
+	// dragMesh = null; controller.Enable();
 });
 
 let stateIndex = 0;
@@ -57748,7 +57749,7 @@ const animate = () => {
 	
 	// update THREE.JS rendering and controller
 	renderer.render( scene, camera );
-	controller.Update();
+	controller.update();
 };
 
 // Immediately call after loading - This might be dangerous?
